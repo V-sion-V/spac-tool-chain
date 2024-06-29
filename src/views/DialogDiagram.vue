@@ -4,6 +4,8 @@ import DialogNode from '@/components/DialogNode.vue'
 import { ConnectionMode, useVueFlow, VueFlow } from '@vue-flow/core'
 import { MiniMap } from '@vue-flow/minimap'
 import StartNode from '@/components/StartNode.vue'
+import NpcViewer from '@/components/NpcViewer.vue'
+import FunctionManager from '@/components/FunctionManager.vue'
 
 const { onConnect, onNodeDragStop, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
 
@@ -190,86 +192,7 @@ function removeNode(id) {
     nodes.value.splice(nodes.value.indexOf(node), 1)
 }
 
-const currentNpcInfoFormRef = ref(null)
-const npcDrawerContext = ref({
-  show: false,
-  loading: true,
-  currentNpcIndex: -1,
-  npcList: [
-    {
-      npcID: 'TestNPC_1',
-      name: 'V_sion',
-      maxFamiliar: 4,
-      familiarList: null
-    }, {
-      npcID: 'TestNPC_2',
-      name: 'Focol',
-      maxFamiliar: 5,
-      familiarList: null
-    }, {
-      npcID: 'TestNPC_3',
-      name: 'Vanadis',
-      maxFamiliar: 6,
-      familiarList: null
-    }, {
-      npcID: 'TestNPC_4',
-      name: 'Artemis',
-      maxFamiliar: 7,
-      familiarList: null
-    }
-  ],
-  currentNpcInfoValue:{
-    name:'',
-    npcID:'',
-  },
-  currentNpcInfoRules:{
-    name:{
-      required: true,
-      message: "Please enter name",
-      trigger: ["blur"]
-    },
-    npcID:{
-      required: true,
-      trigger: ["blur"],
-      validator (_rule, value) {
-        if (!value || value==='') {
-          return new Error('Please enter NPC ID')
-        }
-        if (value !== npcDrawerContext.value.npcList[npcDrawerContext.value.currentNpcIndex].npcID &&
-          npcDrawerContext.value.npcList.find(p=>p.npcID === value)) {
-          return new Error('NPC ID exist')
-        }
-        return true
-      }
-    },
-
-  },
-})
-
-function loadNpcDrawerContent() {
-  npcDrawerContext.value.currentNpcIndex = -1
-  npcDrawerContext.value.loading = false
-}
-
-function onCloseNpcDrawer() {
-  npcDrawerContext.value.loading = true
-}
-
-function changeCurrentNpc(index) {
-  npcDrawerContext.value.currentNpcIndex = index
-  let currentNPC = npcDrawerContext.value.npcList[index]
-  npcDrawerContext.value.currentNpcInfoValue = {
-    name:currentNPC.name,
-    npcID:currentNPC.npcID
-  }
-  nextTick(()=> {
-    currentNpcInfoFormRef.value?.validate((errors) =>{
-      if(errors)
-        console.log(errors)
-    });
-  })
-
-}
+const showNpcSelector = ref(false)
 
 const conditionDrawerContext = ref({
   show: false,
@@ -317,7 +240,7 @@ function onCloseTriggerDrawer() {
         </template>
       </VueFlow>
     </div>
-    <n-float-button :left="20" :bottom="120" shape="circle" @click="npcDrawerContext.show = true">
+    <n-float-button :left="20" :bottom="120" shape="circle" @click="showNpcSelector= true">
       <n-icon>
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 28 28">
           <g fill="none">
@@ -346,107 +269,9 @@ function onCloseTriggerDrawer() {
         </svg>
       </n-icon>
     </n-float-button>
-    <n-drawer v-model:show="npcDrawerContext.show" :width="1000" placement="right"
-              @after-enter="loadNpcDrawerContent"
-              @after-leave="onCloseNpcDrawer"
-    >
-      <n-drawer-content body-content-style="padding:0;">
-        <n-spin v-if="npcDrawerContext.loading"
-                style="width: 100%; height: 100%"
-                size="large" />
-        <n-flex v-else justify="left" style="height: 100%;column-gap: 0">
-          <n-flex vertical style="max-height: 100%;width: 40%;gap:0">
-            <n-flex style="padding: 20px 20px">
-              <n-h2 type="success" style="margin-bottom: 0" prefix="bar">
-                NPC List
-              </n-h2>
-              <n-button circle quaternary type="success" style="margin-left: 210px">
-                <template #icon>
-                  <n-icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                         viewBox="0 0 12 12">
-                      <g fill="none">
-                        <path
-                          d="M6 1.5a.5.5 0 0 0-1 0V5H1.5a.5.5 0 0 0 0 1H5v3.5a.5.5 0 0 0 1 0V6h3.5a.5.5 0 0 0 0-1H6V1.5z"
-                          fill="currentColor"></path>
-                      </g>
-                    </svg>
-                  </n-icon>
-                </template>
-              </n-button>
-            </n-flex>
-            <n-divider style="margin: 0;" />
-            <n-scrollbar style="max-height: 100%">
-              <n-flex style="width: 100%;padding:20px;" vertical>
-                <n-card v-for="(npc, index) in npcDrawerContext.npcList" hoverable
-                        :style="'cursor:pointer;'+(index===npcDrawerContext.currentNpcIndex?'background-color: rgba(255, 255, 255, .08);':'')"
-                        @click="changeCurrentNpc(index)"
-                >
-                  <template #header>
-                    <n-h3 type="info" style="margin-bottom: 0" prefix="bar" align-text>
-                      <n-text>
-                        {{ npc.name }}
-                      </n-text>
-                    </n-h3>
-                  </template>
-                  <template #header-extra>
-                    {{ npc.npcID }}
-                  </template>
-                </n-card>
-              </n-flex>
-            </n-scrollbar>
-          </n-flex>
-          <n-divider vertical style="height: 100%;margin-right: 0;margin-left: -1px" />
-          <n-flex vertical style="width: 60%">
-            <n-scrollbar v-if="npcDrawerContext.currentNpcIndex>=0" style="max-height: 100%;width: 100%">
-              <n-card size="huge" style="width: 560px; margin:20px" title="NPC Information">
-                <n-form
-                  ref="currentNpcInfoFormRef"
-                  :model="npcDrawerContext.currentNpcInfoValue"
-                  :rules="npcDrawerContext.currentNpcInfoRules"
-                  label-placement="left"
-                  label-width="auto"
-                  require-mark-placement="right-hanging"
-                >
-                  <n-form-item label="Name" path="name">
-                    <n-input v-model:value="npcDrawerContext.currentNpcInfoValue.name" placeholder="" />
-                  </n-form-item>
-                  <n-form-item label="NPC ID" path="npcID">
-                    <n-input v-model:value="npcDrawerContext.currentNpcInfoValue.npcID" placeholder="" />
-                  </n-form-item>
-                </n-form>
-              </n-card>
-            </n-scrollbar>
-          </n-flex>
-        </n-flex>
-      </n-drawer-content>
-    </n-drawer>
-    <n-drawer v-model:show="conditionDrawerContext.show" :width="500" placement="right"
-              @after-enter="loadConditionDrawerContent"
-              @after-leave="onCloseConditionDrawer"
-    >
-      <n-drawer-content title="Condition Functions Management">
-        <n-spin v-if="conditionDrawerContext.loading"
-                style="width: 100%; height: 100%"
-                size="large" />
-        <n-space v-else vertical>
-          《斯通纳》是美国作家约翰·威廉姆斯在 1965 年出版的小说。
-        </n-space>
-      </n-drawer-content>
-    </n-drawer>
-    <n-drawer v-model:show="triggerDrawerContext.show" :width="500" placement="right"
-              @after-enter="loadConditionDrawerContent"
-              @after-leave="onCloseConditionDrawer"
-    >
-      <n-drawer-content title="Trigger Functions Management">
-        <n-spin v-if="triggerDrawerContext.loading"
-                style="width: 100%; height: 100%"
-                size="large" />
-        <n-space v-else vertical>
-          《斯通纳》是美国作家约翰·威廉姆斯在 1965 年出版的小说。
-        </n-space>
-      </n-drawer-content>
-    </n-drawer>
+    <NpcViewer v-model:show="showNpcSelector" @select-familiar-level="(familiarLevelID)=>console.log(familiarLevelID)"/>
+    <FunctionManager v-model:show="conditionDrawerContext.show" function-type="condition"/>
+    <FunctionManager v-model:show="triggerDrawerContext.show" function-type="trigger"/>
   </div>
 </template>
 
