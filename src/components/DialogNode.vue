@@ -189,25 +189,14 @@ const props = defineProps(['id', 'connections'])
 </template>
 
 <script>
-import { useNotification } from 'naive-ui'
-
 export default {
   name: 'dialog_node',
   mounted() {
     this.copyNodeInputData()
   },
-  watch: {
-    connections:{
-      handler(oldVal, val) {
-        console.log(val)
-      },
-      deep:true
-    }
-  },
   data() {
     return {
       selection_id_count: 0,
-      notification: useNotification(),
       node_input: {
         speakerName: '',
         text: '',
