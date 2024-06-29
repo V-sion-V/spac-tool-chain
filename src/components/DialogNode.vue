@@ -1,7 +1,7 @@
 <script setup>
 import { Handle, Position } from '@vue-flow/core'
 
-const props = defineProps(['id', 'label'])
+const props = defineProps(['id', 'connections'])
 </script>
 
 <template>
@@ -13,7 +13,22 @@ const props = defineProps(['id', 'label'])
       <n-text depth="3">
         {{ props.id }}
       </n-text>
-      <n-button :tertiary="!isDirty" type="primary" style="position: absolute; right: 45px; top:3px" size="tiny">
+      <n-button :tertiary="!hasUpdate()" type="info" size="tiny"
+                style="position: absolute; right: 124px; top:2px; width: 50px"
+                @click="handlePull">
+        <template #icon>
+          <n-icon>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+              <path
+                d="M23.5 22H23v-2h.5a4.5 4.5 0 0 0 .36-9H23l-.1-.82a7 7 0 0 0-13.88 0L9 11h-.86a4.5 4.5 0 0 0 .36 9H9v2h-.5A6.5 6.5 0 0 1 7.2 9.14a9 9 0 0 1 17.6 0A6.5 6.5 0 0 1 23.5 22z"
+                fill="currentColor"></path>
+              <path d="M17 26.17V14h-2v12.17l-2.59-2.58L11 25l5 5l5-5l-1.41-1.41L17 26.17z" fill="currentColor"></path>
+            </svg>
+          </n-icon>
+        </template>
+      </n-button>
+      <n-button :tertiary="!isDirty()" type="primary" style="position: absolute; right: 67px; top:2px; width: 50px" size="tiny"
+                @click="handlePush">
         <template #icon>
           <n-icon>
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
@@ -31,7 +46,8 @@ const props = defineProps(['id', 'label'])
         :positive-button-props="{type:'error', ghost:true}"
       >
         <template #trigger>
-          <n-button tertiary type="error" size="tiny" style="position: absolute; right: 10px; top:3px">
+          <n-button tertiary type="error" size="tiny" style="position: absolute; right: 10px; top: 2px; width: 50px"
+                    @click="()=>{if(id==='New dialog')$emit('nodeRemoved', props.id)}">
             <template #icon>
               <n-icon>
                 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -170,24 +186,35 @@ const props = defineProps(['id', 'label'])
       :style="'background-color: grey; top:'+ (300 + 135 * (index)) +'px'">
     </Handle>
   </div>
-
 </template>
 
 <script>
+import { useNotification } from 'naive-ui'
+
 export default {
+  name: 'dialog_node',
+  mounted() {
+    this.copyNodeInputData()
+  },
+  watch: {
+    connections:{
+      handler(oldVal, val) {
+        console.log(val)
+      },
+      deep:true
+    }
+  },
   data() {
     return {
-      isDirty: false,
-      id_count: 0,
+      selection_id_count: 0,
+      notification: useNotification(),
       node_input: {
         speakerName: '',
         text: '',
         next_mode: 'condition',
         selections: []
       },
-      last_node_value: {
-
-      },
+      last_node_value: {},
       next_modes: [
         {
           value: 'condition',
@@ -254,13 +281,64 @@ export default {
     addSelection() {
       this.node_input.selections.push(
         {
-          id: this.id_count,
+          id: this.selection_id_count,
           text: '',
           condition: null,
-          trigger: null
+          trigger: null,
+          next: ''
         }
       )
-      this.id_count++
+      this.selection_id_count++
+    },
+    handlePush() {
+      this.copyNodeInputData()
+    },
+    handlePull() {
+      console.log(this.last_node_value)
+    },
+    isDirty() {
+      if (this.id === 'New dialog') {
+        return true
+      } else if (this.node_input.text !== this.last_node_value.text) {
+        return true
+      } else if (this.node_input.speakerName !== this.last_node_value.speakerName) {
+        return true
+      } else if (this.node_input.next_mode !== this.last_node_value.next_mode) {
+        return true
+      } else if (this.node_input.selections.length !== this.last_node_value.selections.length) {
+        return true
+      } else {
+        for (let i = 0; i < this.node_input.selections.length; i++) {
+          if (this.node_input.selections[i].id !== this.last_node_value.selections[i].id) {
+            return true
+          } else if (this.node_input.selections[i].text !== this.last_node_value.selections[i].text) {
+            return true
+          } else if (this.node_input.selections[i].condition !== this.last_node_value.selections[i].condition) {
+            return true
+          } else if (this.node_input.selections[i].trigger !== this.last_node_value.selections[i].trigger) {
+            return true
+          }
+        }
+      }
+      if(this.connections.nextDefault !== this.last_node_value.next_default) {
+        return true
+      }
+      for(let i = 0; i < this.last_node_value.selections.length; i++) {
+        if(this.connections['next'+i] !== this.last_node_value.selections[i].next) {
+          return true;
+        }
+      }
+      return false
+    },
+    hasUpdate(){
+      return false
+    },
+    copyNodeInputData() {
+      this.last_node_value = JSON.parse(JSON.stringify(this.node_input))
+      this.last_node_value.next_default = this.connections.nextDefault
+      for(let i = 0; i < this.last_node_value.selections.length; i++) {
+        this.last_node_value.selections[i].next = this.connections['next'+i]
+      }
     }
   }
 }
