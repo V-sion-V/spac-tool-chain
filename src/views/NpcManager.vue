@@ -42,15 +42,15 @@ const npcInfoContext = ref({
   currentFamiliarLevel: -1,
   leftPanelHidePercentage: 0,
   savedCurrentNpcInfo: {
-    id: null,
-    npcID: null,
-    name: null,
+    id: '',
+    npcID: '',
+    name: '',
     familiarList: []
   },
   currentNpcInfo: {
-    id: null,
-    npcID: null,
-    name: null,
+    id: '',
+    npcID: '',
+    name: '',
     familiarList: []
   }
 })
@@ -60,6 +60,7 @@ loadNpcList()
 function loadNpcList() {
   npcListContext.value.loading = true
   npcListContext.value.currentNpcIndex = -1
+  if(npcInfoContext.value.isEditMode) exitEditMode()
   axios.post('/npc/getList').then((res) => {
     npcListContext.value.loading = false
     npcListContext.value.npcList = res.data.npcList
@@ -67,9 +68,6 @@ function loadNpcList() {
   }).catch((e) => {
     console.log(e)
   })
-}
-
-function tryAddNpc() {
 }
 
 function changeCurrentNpc(index) {
@@ -102,6 +100,14 @@ function enterEditMode() {
     (x)=>npcInfoContext.value.leftPanelHidePercentage = x,
     ()=>{}
   )
+}
+
+function enterAddMode() {
+  npcListContext.value.currentNpcIndex = -1
+  npcInfoContext.value.currentFamiliarLevel = -1
+  npcInfoContext.value.currentNpcInfo = {id:'',name:'',npcID:'', familiarList:[]}
+  npcInfoContext.value.savedCurrentNpcInfo = JSON.parse(JSON.stringify(npcInfoContext.value.currentNpcInfo))
+  enterEditMode()
 }
 
 function addLocalFamiliarLevel() {
@@ -144,8 +150,34 @@ const isDirty = computed(()=>{
   return false
 })
 
-function applyCurrentChanges() {
+const isValid = computed(()=>{
+  let current = npcInfoContext.value.currentNpcInfo
+  let origin = npcInfoContext.value.savedCurrentNpcInfo
+  if(!current.npcID || current.npcID ==='') return false
+  if(current.npcID !== origin.npcID && npcListContext.value.npcList.find(p=>p.npcID === current.npcID)) return false;
+  if(!current.name || current.name === '') return false;
+  return true
+})
 
+function applyCurrentChanges() {
+  let current = npcInfoContext.value.currentNpcInfo
+  if(!current.id || current.id ==='') {
+    let data = {npcID:current.npcID, name: current.name, familiarList: []}
+    current.familiarList.forEach(i=>data.familiarList.push({maxSubFamiliarLevel: i.maxSubFamiliarLevel}))
+    axios.post('/npc/add', data).then((res)=>{
+      loadNpcList()
+    }).catch((e)=>{
+      console.log(e)
+    })
+  } else {
+    let data = {id:current.id, npcID:current.npcID, name: current.name, familiarList: []}
+    current.familiarList.forEach(i=>data.familiarList.push({maxSubFamiliarLevel: i.maxSubFamiliarLevel, id: i.id}))
+    axios.post('/npc/update', data).then((res)=>{
+      loadNpcList()
+    }).catch((e)=>{
+      console.log(e)
+    })
+  }
 }
 
 function applyDeleteCurrentNpc() {
@@ -172,7 +204,7 @@ function applyDeleteCurrentNpc() {
             NPC List
           </n-h2>
           <n-flex justify="right" style="gap:0;flex:1">
-            <n-button circle tertiary type="info" style="margin: auto 5px" @click="tryAddNpc()">
+            <n-button circle tertiary type="info" style="margin: auto 5px" @click="enterAddMode()">
               <template #icon>
                 <n-icon>
                   <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -231,7 +263,7 @@ function applyDeleteCurrentNpc() {
       <n-divider vertical style="height: 100%;margin-right: 0;margin-left: -1px" />
       <n-flex vertical style="flex:1;height: 100%">
         <n-empty
-          v-if="npcListContext.currentNpcIndex<0 || npcListContext.currentNpcIndex>=npcListContext.npcList.length"
+          v-if="!npcInfoContext.isEditMode && (npcListContext.currentNpcIndex < 0 || npcListContext.currentNpcIndex>=npcListContext.npcList.length)"
           description="Select a NPC to check information."
           style="margin: auto;align-items: center"
           size="huge"
@@ -304,7 +336,7 @@ function applyDeleteCurrentNpc() {
               </template>
             </n-button>
             <n-button v-if="npcInfoContext.isEditMode"
-                      circle :disabled="!isDirty" :type="isDirty?'success':'default'"
+                      circle :disabled="!isDirty||!isValid" :type="isDirty?'success':'default'"
                       style="margin: auto 5px"
                       @click="applyCurrentChanges()">
               <template #icon>
