@@ -16,7 +16,6 @@
     "axios": "^1.7.2",
     "vue": "^3.4.21",
     "vue-flow": "^0.3.0",
-    "vue-query": "^1.26.0",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
