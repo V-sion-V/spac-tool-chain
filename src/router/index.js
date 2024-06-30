@@ -14,7 +14,12 @@ const router = createRouter({
       component: ()=>import("@/views/Login.vue")
     },
     {
-      path: '/dialog',
+      path: '/npc',
+      name: 'npc',
+      component: ()=>import("@/views/NpcManager.vue")
+    },
+    {
+      path: '/dialog/:id',
       name: 'dialog',
       component: ()=>import("@/views/DialogDiagram.vue")
     }

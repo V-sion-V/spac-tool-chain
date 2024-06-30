@@ -2,7 +2,9 @@
 import { VueFlow } from '@vue-flow/core'
 import { ref } from 'vue'
 import router from '@/router/index.js'
+import NpcViewer from '@/components/NpcViewer.vue'
 
+const showNpcViewer = ref(false)
 </script>
 
 <template>
@@ -12,19 +14,53 @@ import router from '@/router/index.js'
         <n-h1 prefix="bar" style="font-size: 100px"> Spac Toolchain </n-h1>
       </n-flex>
       <n-flex justify="center" style="width: 100%;height: 30%;gap: 50px">
-        <n-card style="width: 20%;cursor: pointer;" hoverable
-                @click="router.push('/dialog')"
+        <n-card style="width: 20%;cursor: pointer" hoverable
+                @click="router.push('/npc')"
         >
           <n-h1 prefix="bar" type="success">
-            Dialog Editor
+            NPC
           </n-h1>
-          Edit dialogs with a flow diagram.
+          <n-text>
+            Add and remove NPCs, edit NPC familiar level and other information.
+          </n-text>
+          <br/>
+          <n-text depth="3">
+            Find your target familiar level for editing.
+          </n-text>
         </n-card>
-        <n-card style="width: 20%" hoverable>
+        <n-card style="width: 20%;cursor: pointer;" hoverable
+                @click="router.push('/dialog/0')"
+        >
+          <n-h1 prefix="bar" type="success">
+            Dialog
+          </n-h1>
+          <n-text>
+            Edit dialog texts and connections with a flow diagram.
+          </n-text>
+          <br/>
+          <n-text depth="3">
+            Manage condition and trigger functions also.
+          </n-text>
         </n-card>
-        <n-card style="width: 20%" hoverable>
+        <n-card style="width: 20%;cursor: pointer" hoverable
+                @click=""
+        >
+          <n-h1 prefix="bar" type="success">
+            Relic
+          </n-h1>
+          <n-text depth="3">
+            Coming soon.
+          </n-text>
         </n-card>
-        <n-card style="width: 20%" hoverable>
+        <n-card style="width: 20%;cursor: pointer" hoverable
+                @click=""
+        >
+          <n-h1 prefix="bar" type="success">
+            Mission
+          </n-h1>
+          <n-text depth="3">
+            Coming soon.
+          </n-text>
         </n-card>
       </n-flex>
     </n-flex>

@@ -1,48 +1,70 @@
 <script setup>
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import DialogNode from '@/components/DialogNode.vue'
 import { ConnectionMode, useVueFlow, VueFlow } from '@vue-flow/core'
-import { MiniMap } from '@vue-flow/minimap'
 import StartNode from '@/components/StartNode.vue'
 import NpcViewer from '@/components/NpcViewer.vue'
 import FunctionManager from '@/components/FunctionManager.vue'
+import router from '@/router/index.js'
+import { useRoute } from 'vue-router'
 
 const { onConnect, onNodeDragStop, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
 
 const vueFlowInstance = ref(null)
 
-const nodes = ref([
-  {
-    id: '0',
-    type: 'start',
-    position: { x: 50, y: 50 },
-    connectable: true,
-    draggable: false,
-    data: {}
-  },
-  {
-    id: '000001',
-    type: 'dialog',
-    position: { x: 300, y: 50 },
-    connectable: true,
-    data: {}
-  },
-  {
-    id: '000002',
-    type: 'dialog',
-    position: { x: 850, y: 50 },
-    connectable: true,
-    data: {}
-  },
-  {
-    id: '000003',
-    type: 'dialog',
-    position: { x: 850, y: 450 },
-    connectable: true,
-    data: {}
-  }
-])
+const nodes = ref([])
 const edges = ref([])
+
+const route = useRoute()
+
+loadDiagram(route.params.id)
+
+watch(() => route.params.id,
+  (newId, oldId) => {
+    loadDiagram(newId)
+  })
+
+function loadDiagram(familiarID) {
+  if (familiarID !== '0') {
+    nodes.value =
+      [
+        {
+          id: '0',
+          type: 'start',
+          position: { x: 50, y: 50 },
+          connectable: true,
+          draggable: false,
+          data: {}
+        },
+        {
+          id: '000001',
+          type: 'dialog',
+          position: { x: 300, y: 50 },
+          connectable: true,
+          data: {}
+        },
+        {
+          id: '000002',
+          type: 'dialog',
+          position: { x: 850, y: 50 },
+          connectable: true,
+          data: {}
+        },
+        {
+          id: '000003',
+          type: 'dialog',
+          position: { x: 850, y: 450 },
+          connectable: true,
+          data: {}
+        }
+      ]
+    edges.value = []
+  } else {
+    nodes.value = []
+    edges.value = []
+  }
+}
+
 const isConnectedThisFrame = ref(false)
 const lastConnectStartInfo = ref({ source: '', sourceHandle: '' })
 
@@ -222,8 +244,21 @@ function onCloseTriggerDrawer() {
 </script>
 
 <template>
-  <div id="out-vueflow" style="height: 100%; width: 100%">
-    <div style="height: 100%; width: 100%">
+  <div style="height: 100%; width: 100%">
+    <n-empty v-if="route.params.id === '0'"
+             style="width: 100%;height: 100%; display: flex; justify-content: center; align-items: center;"
+             size="huge" :show-icon="false"
+    >
+      <n-flex vertical align="center">
+        <n-text depth="3" style="font-size: 30px">
+          Select a NPC-Familiar-Level to show dialogs.
+        </n-text>
+        <n-text depth="3" style="font-size: 20px">
+          Click the button at the left-bottom corner to open NPC viewer.
+        </n-text>
+      </n-flex>
+    </n-empty>
+    <div v-else style="height: 100%; width: 100%">
       <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict"
                @pane-ready="onPaneReady">
         <template #node-dialog="props">
@@ -240,6 +275,15 @@ function onCloseTriggerDrawer() {
         </template>
       </VueFlow>
     </div>
+    <n-float-button type="primary" :left="20" :top="20" shape="circle" @click="router.push('/')">
+      <n-icon>
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+          <path
+            d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
+            fill="currentColor"></path>
+        </svg>
+      </n-icon>
+    </n-float-button>
     <n-float-button :left="20" :bottom="120" shape="circle" @click="showNpcSelector= true">
       <n-icon>
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 28 28">
@@ -269,9 +313,9 @@ function onCloseTriggerDrawer() {
         </svg>
       </n-icon>
     </n-float-button>
-    <NpcViewer v-model:show="showNpcSelector" @select-familiar-level="(familiarLevelID)=>console.log(familiarLevelID)"/>
-    <FunctionManager v-model:show="conditionDrawerContext.show" function-type="condition"/>
-    <FunctionManager v-model:show="triggerDrawerContext.show" function-type="trigger"/>
+    <npc-viewer v-model:show="showNpcSelector" @select-familiar-level="(id)=>{router.push({path:`/dialog/${id}`})}" />
+    <function-manager v-model:show="conditionDrawerContext.show" function-type="condition" />
+    <function-manager v-model:show="triggerDrawerContext.show" function-type="trigger" />
   </div>
 </template>
 

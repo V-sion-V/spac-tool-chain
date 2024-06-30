@@ -1,12 +1,11 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import router from '@/router/index.js'
 import axios from 'axios'
 
 const show = defineModel('show', { required: true })
 const emit = defineEmits(['selectFamiliarLevel'])
 
-const currentNpcInfoFormRef = ref(null)
 const npcDrawerContext = ref({
   loading: true,
   currentNpcIndex: -1,
@@ -79,17 +78,16 @@ function changeCurrentNpc(index) {
   axios.post('/npc/getInfo', {id:npcDrawerContext.value.npcList[index].id}).then((res)=>{
     npcDrawerContext.value.npcInfoLoading = false
     npcDrawerContext.value.currentNpcInfoValue = res.data
-    npcDrawerContext.value.currentNpcInfoValue.familiarList.sort((a,b) => a.familiarLevel - b.familiarLevel)
+    for (let i = 0; i < npcDrawerContext.value.currentNpcInfoValue.familiarList.length; i++) {
+      npcDrawerContext.value.currentNpcInfoValue.familiarList[i].familiarLevel = i
+    }
   }).catch((e)=>{
     console.log(e)
   })
 }
 
 function openNpcManager() {
-  let routeUrl = router.resolve({
-    path: '/'//todo: to npc manager
-  })
-  window.open(routeUrl.href, '_blank')
+  router.push('/npc')
 }
 </script>
 
@@ -124,6 +122,7 @@ function openNpcManager() {
           <n-scrollbar style="max-height: 100%">
             <n-flex style="width: 100%;padding:20px;" vertical>
               <n-card v-for="(npc, index) in npcDrawerContext.npcList" hoverable
+                      v-bind:key="index"
                       :style="'cursor:pointer;'+(index===npcDrawerContext.currentNpcIndex?'background-color: rgba(255, 255, 255, .08);':'')"
                       @click="changeCurrentNpc(index)"
               >
@@ -190,7 +189,9 @@ function openNpcManager() {
                     <n-text style="margin-left: 5%;" type="success" strong>Link</n-text>
                   </n-flex>
                 </template>
-                <n-list-item v-for="(item, index) in npcDrawerContext.currentNpcInfoValue.familiarList">
+                <n-list-item v-for="(item, index) in npcDrawerContext.currentNpcInfoValue.familiarList"
+                             v-bind:key="index"
+                >
                   <n-flex style="font-size: 15px;">
                     <n-text style="width: 10%" type="info">{{ item.familiarLevel }}</n-text>
                     <n-text style="width: 20%" type="info"> {{item.dialogCount}} </n-text>
