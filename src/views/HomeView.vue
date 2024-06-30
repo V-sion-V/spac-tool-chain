@@ -25,7 +25,7 @@ const showNpcViewer = ref(false)
           </n-text>
           <br/>
           <n-text depth="3">
-            Find your target familiar level for editing.
+            Find your target familiar level for other editing issues.
           </n-text>
         </n-card>
         <n-card style="width: 20%;cursor: pointer;" hoverable
@@ -35,7 +35,7 @@ const showNpcViewer = ref(false)
             Dialog
           </n-h1>
           <n-text>
-            Edit dialog texts and connections with a flow diagram.
+            Edit dialog texts and connections with a flow diagram to tell story.
           </n-text>
           <br/>
           <n-text depth="3">

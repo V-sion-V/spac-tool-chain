@@ -270,5 +270,8 @@ function applyAddFunction() {
 </template>
 
 <style scoped>
-
+.n-card{
+  border-radius: 7px;
+  border-width: 2px;
+}
 </style>

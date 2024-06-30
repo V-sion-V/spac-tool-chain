@@ -89,6 +89,11 @@ function changeCurrentNpc(index) {
 function openNpcManager() {
   router.push('/npc')
 }
+
+function emitFamiliarEvent(familiarID) {
+  emit('selectFamiliarLevel', familiarID);
+  show.value=false
+}
 </script>
 
 <template>
@@ -123,12 +128,12 @@ function openNpcManager() {
             <n-flex style="width: 100%;padding:20px;" vertical>
               <n-card v-for="(npc, index) in npcDrawerContext.npcList" hoverable
                       v-bind:key="index"
-                      :style="'cursor:pointer;'+(index===npcDrawerContext.currentNpcIndex?'background-color: rgba(255, 255, 255, .08);':'')"
+                      :class="index===npcDrawerContext.currentNpcIndex?'selected-n-card':''"
                       @click="changeCurrentNpc(index)"
               >
                 <template #header>
                   <n-space>
-                    <n-h3 type="info" style="margin-bottom: 0;" prefix="bar" align-text>
+                    <n-h3 :type="index===npcDrawerContext.currentNpcIndex?'success':'info'" style="margin-bottom: 0;" prefix="bar" align-text>
                       <n-text>
                         <n-ellipsis style="max-width: 200px">
                           {{ npc.name }}
@@ -198,7 +203,7 @@ function openNpcManager() {
                     <n-text style="width: 20%" depth="2">{{ item.maxSubFamiliarLevel }}</n-text>
                     <n-text style="width: 25%" depth="3">{{ item.id }}</n-text>
                     <n-button style="margin-left: 5%" size="small"
-                              circle quaternary type="success" @click="emit('selectFamiliarLevel', item.id)">
+                              circle quaternary type="success" @click="emitFamiliarEvent(item.id)">
                       <template #icon>
                         <n-icon>
                           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -224,5 +229,18 @@ function openNpcManager() {
 </template>
 
 <style scoped>
+.n-card{
+  border-radius: 7px;
+  border-width: 2px;
+}
 
+.n-card:hover{
+  background-color: rgba(42, 148, 125, 0.25);
+  cursor: pointer;
+}
+
+.selected-n-card{
+  border-color: #63e2b7;
+  box-sizing: border-box;
+}
 </style>
