@@ -1,7 +1,169 @@
 <script setup>
 import { Handle, Position } from '@vue-flow/core'
+import { computed, ref } from 'vue'
 
 const props = defineProps(['id', 'connections'])
+const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved'])
+
+const selection_id_count = ref(0)
+const node_input = ref(
+  {
+    speakerName: '',
+    text: '',
+    next_mode: 'condition',
+    next_default: null,
+    selections: []
+  }
+)
+const last_node_input = ref({
+  speakerName: '',
+  text: '',
+  next_mode: 'condition',
+  next_default: null,
+  selections: []
+})
+
+const next_modes = [
+  {
+    value: 'condition',
+    label: 'Condition'
+  },
+  {
+    value: 'select',
+    label: 'Select'
+  }
+]
+
+const conditionOptions = ref([
+  {
+    label: 'Familiar0',
+    value: 'Familiar0'
+  },
+  {
+    label: 'Familiar1',
+    value: 'Familiar1'
+  },
+  {
+    label: 'Familiar2',
+    value: 'Familiar2'
+  },
+  {
+    label: 'Familiar3',
+    value: 'Familiar3'
+  },
+  {
+    label: 'HasFamiliarReward',
+    value: 'HasFamiliarReward'
+  }
+])
+
+const triggerOptions = ref([
+  {
+    label: 'SubmitMission',
+    value: 'SubmitMission'
+  },
+  {
+    label: 'TestFunction',
+    value: 'TestFunction'
+  }
+])
+
+copyNodeInputData()
+
+function handleRemoveSelection(index) {
+  node_input.value.selections.splice(index, 1)
+  emit('selectionRemoved', props.id, index, node_input.value.selections.length)
+}
+
+function handleMoveUp(index) {
+  if (index <= 0) return
+  let temp = node_input.value.selections[index]
+  node_input.value.selections[index] = node_input.value.selections[index - 1]
+  node_input.value.selections[index - 1] = temp
+  emit('selectionMoveUp', props.id, index - 1, index)
+}
+
+function handleMoveDown(index) {
+  if (index >= node_input.value.selections.length - 1) return
+  let temp = node_input.value.selections[index]
+  node_input.value.selections[index] = node_input.value.selections[index + 1]
+  node_input.value.selections[index + 1] = temp
+  emit('selectionMoveDown', props.id, index + 1, index)
+}
+
+function addSelection() {
+  node_input.value.selections.push(
+    {
+      id: selection_id_count.value,
+      text: '',
+      condition: null,
+      trigger: null,
+      next: ''
+    }
+  )
+  selection_id_count.value++
+}
+
+function handlePush() {
+  //to server
+  copyNodeInputData()
+}
+
+function handlePull() {
+  console.log(last_node_input.value)
+}
+
+const isDirty = computed(()=> {
+  if (props.id === 'New dialog') {
+    return true
+  } else if (node_input.value.text !== last_node_input.value.text) {
+    return true
+  } else if (node_input.value.speakerName !== last_node_input.value.speakerName) {
+    return true
+  } else if (node_input.value.next_mode !== last_node_input.value.next_mode) {
+    return true
+  } else if (node_input.value.selections.length !== last_node_input.value.selections.length) {
+    return true
+  } else {
+    for (let i = 0; i < node_input.value.selections.length; i++) {
+      if (node_input.value.selections[i].id !== last_node_input.value.selections[i].id) {
+        return true
+      } else if (node_input.value.selections[i].text !== last_node_input.value.selections[i].text) {
+        return true
+      } else if (node_input.value.selections[i].condition !== last_node_input.value.selections[i].condition) {
+        return true
+      } else if (node_input.value.selections[i].trigger !== last_node_input.value.selections[i].trigger) {
+        return true
+      }
+    }
+  }
+  if(props.connections['nextDefault'] || last_node_input.value.next_default) {
+    if(props.connections['nextDefault'] !== last_node_input.value.next_default) {
+      return true
+    }
+  }
+  for(let i = 0; i < last_node_input.value.selections.length; i++) {
+    if(props.connections['next'+i] || last_node_input.value.selections[i].next) {
+      if(props.connections['next'+i] !== last_node_input.value.selections[i].next) {
+        return true;
+      }
+    }
+  }
+  return false
+})
+
+function hasUpdate(){
+  return false
+}
+
+function copyNodeInputData(){
+  last_node_input.value = JSON.parse(JSON.stringify(node_input.value))
+  last_node_input.value.next_default = props.connections['nextDefault']
+  for(let i = 0; i < last_node_input.value.selections.length; i++) {
+    last_node_input.value.selections[i].next = props.connections['next'+i]
+  }
+}
+
 </script>
 
 <template>
@@ -27,7 +189,7 @@ const props = defineProps(['id', 'connections'])
           </n-icon>
         </template>
       </n-button>
-      <n-button :tertiary="!isDirty()" type="primary" style="position: absolute; right: 67px; top:2px; width: 50px" size="tiny"
+      <n-button :tertiary="!isDirty" type="primary" style="position: absolute; right: 67px; top:2px; width: 50px" size="tiny"
                 @click="handlePush">
         <template #icon>
           <n-icon>
@@ -187,151 +349,6 @@ const props = defineProps(['id', 'connections'])
     </Handle>
   </div>
 </template>
-
-<script>
-export default {
-  name: 'dialog_node',
-  mounted() {
-    this.copyNodeInputData()
-  },
-  data() {
-    return {
-      selection_id_count: 0,
-      node_input: {
-        speakerName: '',
-        text: '',
-        next_mode: 'condition',
-        selections: []
-      },
-      last_node_value: {},
-      next_modes: [
-        {
-          value: 'condition',
-          label: 'Condition'
-        },
-        {
-          value: 'select',
-          label: 'Select'
-        }
-      ],
-      conditionOptions: [
-        {
-          label: 'Familiar0',
-          value: 'Familiar0'
-        },
-        {
-          label: 'Familiar1',
-          value: 'Familiar1'
-        },
-        {
-          label: 'Familiar2',
-          value: 'Familiar2'
-        },
-        {
-          label: 'Familiar3',
-          value: 'Familiar3'
-        },
-        {
-          label: 'HasFamiliarReward',
-          value: 'HasFamiliarReward'
-        }
-      ],
-      triggerOptions: [
-        {
-          label: 'SubmitMission',
-          value: 'SubmitMission'
-        },
-        {
-          label: 'TestFunction',
-          value: 'TestFunction'
-        }
-      ]
-    }
-  },
-  methods: {
-    handleRemoveSelection(index) {
-      this.node_input.selections.splice(index, 1)
-      this.$emit('selectionRemoved', this.id, index, this.node_input.selections.length)
-    },
-    handleMoveUp(index) {
-      if (index <= 0) return
-      let temp = this.node_input.selections[index]
-      this.node_input.selections[index] = this.node_input.selections[index - 1]
-      this.node_input.selections[index - 1] = temp
-      this.$emit('selectionMoveUp', this.id, index - 1, index)
-    },
-    handleMoveDown(index) {
-      if (index >= this.node_input.selections.length - 1) return
-      let temp = this.node_input.selections[index]
-      this.node_input.selections[index] = this.node_input.selections[index + 1]
-      this.node_input.selections[index + 1] = temp
-      this.$emit('selectionMoveDown', this.id, index + 1, index)
-    },
-    addSelection() {
-      this.node_input.selections.push(
-        {
-          id: this.selection_id_count,
-          text: '',
-          condition: null,
-          trigger: null,
-          next: ''
-        }
-      )
-      this.selection_id_count++
-    },
-    handlePush() {
-      this.copyNodeInputData()
-    },
-    handlePull() {
-      console.log(this.last_node_value)
-    },
-    isDirty() {
-      if (this.id === 'New dialog') {
-        return true
-      } else if (this.node_input.text !== this.last_node_value.text) {
-        return true
-      } else if (this.node_input.speakerName !== this.last_node_value.speakerName) {
-        return true
-      } else if (this.node_input.next_mode !== this.last_node_value.next_mode) {
-        return true
-      } else if (this.node_input.selections.length !== this.last_node_value.selections.length) {
-        return true
-      } else {
-        for (let i = 0; i < this.node_input.selections.length; i++) {
-          if (this.node_input.selections[i].id !== this.last_node_value.selections[i].id) {
-            return true
-          } else if (this.node_input.selections[i].text !== this.last_node_value.selections[i].text) {
-            return true
-          } else if (this.node_input.selections[i].condition !== this.last_node_value.selections[i].condition) {
-            return true
-          } else if (this.node_input.selections[i].trigger !== this.last_node_value.selections[i].trigger) {
-            return true
-          }
-        }
-      }
-      if(this.connections.nextDefault !== this.last_node_value.next_default) {
-        return true
-      }
-      for(let i = 0; i < this.last_node_value.selections.length; i++) {
-        if(this.connections['next'+i] !== this.last_node_value.selections[i].next) {
-          return true;
-        }
-      }
-      return false
-    },
-    hasUpdate(){
-      return false
-    },
-    copyNodeInputData() {
-      this.last_node_value = JSON.parse(JSON.stringify(this.node_input))
-      this.last_node_value.next_default = this.connections.nextDefault
-      for(let i = 0; i < this.last_node_value.selections.length; i++) {
-        this.last_node_value.selections[i].next = this.connections['next'+i]
-      }
-    }
-  }
-}
-</script>
 
 <style scoped>
 

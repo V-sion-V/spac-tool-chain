@@ -12,7 +12,16 @@ const { onConnect, onNodeDragStop, onConnectEnd, onEdgeDoubleClick, onConnectSta
 
 const vueFlowInstance = ref(null)
 
-const nodes = ref([])
+const nodes = ref([{
+  id: '0',
+  type: 'start',
+  position: { x: 50, y: 50 },
+  connectable: true,
+  draggable: false,
+  data:{
+    outConnections: {}
+  }
+}])
 const edges = ref([])
 
 const route = useRoute()
@@ -34,30 +43,41 @@ function loadDiagram(familiarID) {
           position: { x: 50, y: 50 },
           connectable: true,
           draggable: false,
-          data: {}
+          data:{
+            outConnections: {}
+          }
         },
         {
           id: '000001',
           type: 'dialog',
           position: { x: 300, y: 50 },
           connectable: true,
-          data: {}
+          draggable: true,
+          data:{
+            outConnections: {}
+          }
         },
         {
           id: '000002',
           type: 'dialog',
           position: { x: 850, y: 50 },
           connectable: true,
-          data: {}
+          draggable: true,
+          data:{
+            outConnections: {}
+          }
         },
         {
           id: '000003',
           type: 'dialog',
           position: { x: 850, y: 450 },
           connectable: true,
-          data: {}
+          draggable: true,
+          data:{
+            outConnections: {}
+          }
         }
-      ]
+      ];
     edges.value = []
   } else {
     nodes.value = []
@@ -106,7 +126,9 @@ onConnectEnd((event) => {
           type: 'dialog',
           position: pos,
           connectable: true,
-          data: {}
+          data: {
+            outConnections:{}
+          }
         }
         nodes.value.push(node)
         addEdge(connection)
@@ -138,16 +160,18 @@ function addEdge(connection) {
     target: connection.target,
     sourceHandle: connection.sourceHandle,
     targetHandle: connection.targetHandle,
-    id: connection.source + connection.sourceHandle + '-' + connection.target + connection.targetHandle
+    id: getID(connection)
   }
   if (!edges.value.find((e) => e.id === edge.id)) {
     edges.value.push(edge)
     let sourceNode = nodes.value.find(n => n.id === connection.source)
     if (sourceNode != null) {
-      sourceNode.data[connection.sourceHandle] = connection.target
+      sourceNode.data.outConnections[connection.sourceHandle] = connection.target
     }
   }
 }
+
+function getID(connection) {return connection.source + connection.sourceHandle + '-' + connection.target + connection.targetHandle}
 
 function swapSelectionEdges(id, index1, index2) {
   let edge1 = edges.value.find((e) => e.source === id && e.sourceHandle === ('next' + index1))
@@ -155,11 +179,13 @@ function swapSelectionEdges(id, index1, index2) {
   let sourceNode = nodes.value.find(n => n.id === id)
   if (edge1 != null) {
     edge1.sourceHandle = ('next' + index2)
-    sourceNode.data['next' + index2] = edge1.target
+    sourceNode.data.outConnections['next' + index2] = edge1.target
+    edge1.id = getID(edge1)
   }
   if (edge2 != null) {
     edge2.sourceHandle = ('next' + index1)
-    sourceNode.data['next' + index1] = edge2.target
+    sourceNode.data.outConnections['next' + index1] = edge2.target
+    edge2.id = getID(edge2)
   }
   triggerEdgeUpdate()
 }
@@ -174,19 +200,23 @@ function removeSelection(id, start, end) {
   for (let i = start; i < end; i++) {
     let edge = outEdges.find((e) => e.sourceHandle === ('next' + (i + 1)))
     let sourceNode = nodes.value.find(n => n.id === id)
-    sourceNode.data[('next' + (i + 1))] = null
-    if (edge != null) {
-      edge.sourceHandle = 'next' + i
-      sourceNode.data['next' + i] = edge.target
+    if(sourceNode!== null) {
+      sourceNode.data.outConnections[('next' + (i + 1))] = null
+      if (edge != null) {
+        edge.sourceHandle = 'next' + i
+        sourceNode.data.outConnections['next' + i] = edge.target
+        edge.id = getID(edge)
+      }
     }
   }
 }
 
 function removeEdge(edge) {
-  edges.value.splice(edges.value.indexOf(edge), 1)
+  let index = edges.value.findIndex(e=>e.id === edge.id)
+  edges.value.splice(index, 1)
   let sourceNode = nodes.value.find(n => n.id === edge.source)
   if (sourceNode != null) {
-    sourceNode.data[edge.sourceHandle] = null
+    sourceNode.data.outConnections[edge.sourceHandle] = undefined
   }
 }
 
@@ -263,7 +293,7 @@ function onCloseTriggerDrawer() {
                @pane-ready="onPaneReady">
         <template #node-dialog="props">
           <DialogNode :id="props.id"
-                      :connections="props.data"
+                      :connections="props.data.outConnections"
                       @selectionMoveUp="swapSelectionEdges"
                       @selectionMoveDown="swapSelectionEdges"
                       @selectionRemoved="removeSelection"
