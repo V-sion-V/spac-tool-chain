@@ -1,29 +1,37 @@
 <script setup>
 import { Handle, Position } from '@vue-flow/core'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps(['id', 'connections'])
 const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved'])
+const requirePush = defineModel('requirePush', {default:false})
 
-const selection_id_count = ref(0)
-const node_input = ref(
+watch(requirePush, (newVal, oldVal)=>{
+  if(newVal && isDirty) {
+    handlePush()
+    requirePush.value = false
+  }
+})
+
+const selectionIdCount = ref(0)
+const nodeInput = ref(
   {
     speakerName: '',
     text: '',
-    next_mode: 'condition',
-    next_default: null,
+    nextMode: 'condition',
+    nextDefault: undefined,
     selections: []
   }
 )
-const last_node_input = ref({
+const lastNodeInput = ref({
   speakerName: '',
   text: '',
-  next_mode: 'condition',
-  next_default: null,
+  nextMode: 'condition',
+  nextDefault: undefined,
   selections: []
 })
 
-const next_modes = [
+const nextModes = [
   {
     value: 'condition',
     label: 'Condition'
@@ -71,37 +79,37 @@ const triggerOptions = ref([
 copyNodeInputData()
 
 function handleRemoveSelection(index) {
-  node_input.value.selections.splice(index, 1)
-  emit('selectionRemoved', props.id, index, node_input.value.selections.length)
+  nodeInput.value.selections.splice(index, 1)
+  emit('selectionRemoved', props.id, index, nodeInput.value.selections.length)
 }
 
 function handleMoveUp(index) {
   if (index <= 0) return
-  let temp = node_input.value.selections[index]
-  node_input.value.selections[index] = node_input.value.selections[index - 1]
-  node_input.value.selections[index - 1] = temp
+  let temp = nodeInput.value.selections[index]
+  nodeInput.value.selections[index] = nodeInput.value.selections[index - 1]
+  nodeInput.value.selections[index - 1] = temp
   emit('selectionMoveUp', props.id, index - 1, index)
 }
 
 function handleMoveDown(index) {
-  if (index >= node_input.value.selections.length - 1) return
-  let temp = node_input.value.selections[index]
-  node_input.value.selections[index] = node_input.value.selections[index + 1]
-  node_input.value.selections[index + 1] = temp
+  if (index >= nodeInput.value.selections.length - 1) return
+  let temp = nodeInput.value.selections[index]
+  nodeInput.value.selections[index] = nodeInput.value.selections[index + 1]
+  nodeInput.value.selections[index + 1] = temp
   emit('selectionMoveDown', props.id, index + 1, index)
 }
 
 function addSelection() {
-  node_input.value.selections.push(
+  nodeInput.value.selections.push(
     {
-      id: selection_id_count.value,
+      id: selectionIdCount.value,
       text: '',
       condition: null,
       trigger: null,
-      next: ''
+      next: undefined
     }
   )
-  selection_id_count.value++
+  selectionIdCount.value++
 }
 
 function handlePush() {
@@ -109,44 +117,38 @@ function handlePush() {
   copyNodeInputData()
 }
 
-function handlePull() {
-  console.log(last_node_input.value)
-}
-
 const isDirty = computed(()=> {
   if (props.id === 'New dialog') {
     return true
-  } else if (node_input.value.text !== last_node_input.value.text) {
+  } else if (nodeInput.value.text !== lastNodeInput.value.text) {
     return true
-  } else if (node_input.value.speakerName !== last_node_input.value.speakerName) {
+  } else if (nodeInput.value.speakerName !== lastNodeInput.value.speakerName) {
     return true
-  } else if (node_input.value.next_mode !== last_node_input.value.next_mode) {
+  } else if (nodeInput.value.nextMode !== lastNodeInput.value.nextMode) {
     return true
-  } else if (node_input.value.selections.length !== last_node_input.value.selections.length) {
+  } else if (nodeInput.value.selections.length !== lastNodeInput.value.selections.length) {
     return true
   } else {
-    for (let i = 0; i < node_input.value.selections.length; i++) {
-      if (node_input.value.selections[i].id !== last_node_input.value.selections[i].id) {
+    for (let i = 0; i < nodeInput.value.selections.length; i++) {
+      if (nodeInput.value.selections[i].id !== lastNodeInput.value.selections[i].id) {
         return true
-      } else if (node_input.value.selections[i].text !== last_node_input.value.selections[i].text) {
+      } else if (nodeInput.value.selections[i].text !== lastNodeInput.value.selections[i].text) {
         return true
-      } else if (node_input.value.selections[i].condition !== last_node_input.value.selections[i].condition) {
+      } else if (nodeInput.value.selections[i].condition !== lastNodeInput.value.selections[i].condition) {
         return true
-      } else if (node_input.value.selections[i].trigger !== last_node_input.value.selections[i].trigger) {
+      } else if (nodeInput.value.selections[i].trigger !== lastNodeInput.value.selections[i].trigger) {
         return true
       }
     }
   }
-  if(props.connections['nextDefault'] || last_node_input.value.next_default) {
-    if(props.connections['nextDefault'] !== last_node_input.value.next_default) {
-      return true
-    }
+
+  if(props.connections['nextDefault'] !== lastNodeInput.value.nextDefault) {
+    return true
   }
-  for(let i = 0; i < last_node_input.value.selections.length; i++) {
-    if(props.connections['next'+i] || last_node_input.value.selections[i].next) {
-      if(props.connections['next'+i] !== last_node_input.value.selections[i].next) {
-        return true;
-      }
+
+  for(let i = 0; i < lastNodeInput.value.selections.length; i++) {
+    if(props.connections['next'+i] !== lastNodeInput.value.selections[i].next) {
+      return true;
     }
   }
   return false
@@ -157,10 +159,10 @@ function hasUpdate(){
 }
 
 function copyNodeInputData(){
-  last_node_input.value = JSON.parse(JSON.stringify(node_input.value))
-  last_node_input.value.next_default = props.connections['nextDefault']
-  for(let i = 0; i < last_node_input.value.selections.length; i++) {
-    last_node_input.value.selections[i].next = props.connections['next'+i]
+  lastNodeInput.value = JSON.parse(JSON.stringify(nodeInput.value))
+  lastNodeInput.value.nextDefault = props.connections['nextDefault']
+  for(let i = 0; i < lastNodeInput.value.selections.length; i++) {
+    lastNodeInput.value.selections[i].next = props.connections['next'+i]
   }
 }
 
@@ -175,20 +177,6 @@ function copyNodeInputData(){
       <n-text depth="3">
         {{ props.id }}
       </n-text>
-      <n-button :tertiary="!hasUpdate()" type="info" size="tiny"
-                style="position: absolute; right: 124px; top:2px; width: 50px"
-                @click="handlePull">
-        <template #icon>
-          <n-icon>
-            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-              <path
-                d="M23.5 22H23v-2h.5a4.5 4.5 0 0 0 .36-9H23l-.1-.82a7 7 0 0 0-13.88 0L9 11h-.86a4.5 4.5 0 0 0 .36 9H9v2h-.5A6.5 6.5 0 0 1 7.2 9.14a9 9 0 0 1 17.6 0A6.5 6.5 0 0 1 23.5 22z"
-                fill="currentColor"></path>
-              <path d="M17 26.17V14h-2v12.17l-2.59-2.58L11 25l5 5l5-5l-1.41-1.41L17 26.17z" fill="currentColor"></path>
-            </svg>
-          </n-icon>
-        </template>
-      </n-button>
       <n-button :tertiary="!isDirty" type="primary" style="position: absolute; right: 67px; top:2px; width: 50px" size="tiny"
                 @click="handlePush">
         <template #icon>
@@ -236,7 +224,7 @@ function copyNodeInputData(){
       hoverable>
       <n-input
         class="nodrag"
-        v-model:value="node_input.speakerName"
+        v-model:value="nodeInput.speakerName"
         type="text"
         placeholder="Speaker Name"
         style="margin-bottom: 20px;"
@@ -244,7 +232,7 @@ function copyNodeInputData(){
       </n-input>
       <n-input
         class="nodrag"
-        v-model:value="node_input.text"
+        v-model:value="nodeInput.text"
         type="textarea"
         placeholder="Dialog Content"
         style="margin-bottom: 20px"
@@ -256,10 +244,10 @@ function copyNodeInputData(){
       </n-input>
       <n-space style="vertical-align: center">
         <span style="margin-right: 20px;font-weight: bold;font-size: 14px">Mode</span>
-        <n-radio-group v-model:value="node_input.next_mode" size="large" style="height: 100%; vertical-align: center">
+        <n-radio-group v-model:value="nodeInput.nextMode" size="large" style="height: 100%; vertical-align: center">
           <n-radio
             style="margin:auto"
-            v-for="mode in next_modes"
+            v-for="mode in nextModes"
             :key="mode.value"
             :value="mode.value"
             :label="mode.label"
@@ -268,7 +256,7 @@ function copyNodeInputData(){
       </n-space>
     </n-card>
     <n-card
-      v-for="(selection, index) in node_input.selections"
+      v-for="(selection, index) in nodeInput.selections"
       hoverable
       header-style="height:20px;font-size: 14px"
       :title="'Selection '+(index+1)"
@@ -341,7 +329,7 @@ function copyNodeInputData(){
     <Handle id="nextDefault" :position="Position.Right" type="source"
             style="background-color: cornflowerblue;top:130px"></Handle>
     <Handle
-      v-for="(selection, index) in node_input.selections"
+      v-for="(selection, index) in nodeInput.selections"
       :id="'next'+index"
       :position="Position.Right"
       type="source"
