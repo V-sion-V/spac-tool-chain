@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import axios from 'axios'
 import router from '@/router/index.js'
 import { useThemeVars } from 'naive-ui'
+import draggable from 'vuedraggable'
 
 function animate(duration, timing, update, complete) {
   let start = performance.now()
@@ -41,6 +42,7 @@ const npcInfoContext = ref({
   isEditMode: false,
   currentFamiliarLevel: -1,
   leftPanelHidePercentage: 0,
+  lastDraggedIndex: -1,
   savedCurrentNpcInfo: {
     id: '',
     npcID: '',
@@ -187,6 +189,16 @@ function applyDeleteCurrentNpc() {
   }).catch((e) => {
     console.log(e)
   })
+}
+
+function getDraggableCardClass(index) {
+  if(index === npcInfoContext.value.lastDraggedIndex) {
+    return 'force-selected-hovered-n-card'
+  } else if(npcInfoContext.value.lastDraggedIndex !== -1) {
+    return 'n-card'
+  } else if(index === npcInfoContext.value.currentFamiliarLevel) {
+    return 'selected-n-card'
+  } else return 'hovered-n-card'
 }
 
 </script>
@@ -386,24 +398,42 @@ function applyDeleteCurrentNpc() {
               <n-divider style="margin: 0;" />
               <n-scrollbar style="flex:1;width: 100%;">
                 <n-flex style="width: 100%;padding:20px;" vertical>
-                  <n-card v-for="(item, index) in npcInfoContext.currentNpcInfo.familiarList"
-                          :class="index===npcInfoContext.currentFamiliarLevel?'selected-n-card':'hovered-n-card'"
-                          hoverable @click="changeCurrentFamiliar(index)"
+                  <draggable v-model="npcInfoContext.currentNpcInfo.familiarList"
+                             tag="n-flex" class="list-group"
+                             :item-key="(x)=>npcInfoContext.currentNpcInfo.familiarList.indexOf(x)"
+                             :disabled="!npcInfoContext.isEditMode"
+                             @start="e=>{
+                               npcInfoContext.currentFamiliarLevel = e.oldIndex
+                               npcInfoContext.lastDraggedIndex = e.oldIndex;
+                             }"
+                             @end="e=>{
+                               npcInfoContext.currentFamiliarLevel = e.newIndex;
+                               npcInfoContext.lastDraggedIndex = e.newIndex;
+                             }"
                   >
-                    <template #header>
-                      <n-h3 :type="index===npcInfoContext.currentFamiliarLevel?'success':'info'"
-                            style="margin-bottom: 0;width: 100%" align-text prefix="bar">
-                        <n-text>
-                          Level. {{ index }}
-                        </n-text>
-                      </n-h3>
+                    <template #item="{ element, index }">
+                      <n-card :class="getDraggableCardClass(index)"
+                              hoverable @click="changeCurrentFamiliar(index)"
+                              @mousemove="npcInfoContext.lastDraggedIndex = -1"
+                      >
+                        <template #header>
+                          <n-h3 :type="index===npcInfoContext.currentFamiliarLevel?'success':'info'"
+                                style="margin-bottom: 0;width: 100%" align-text prefix="bar"
+                          >
+                            <n-text>
+                              Level. {{ index }}
+                            </n-text>
+                          </n-h3>
+                        </template>
+                        <template #header-extra>
+                          <n-text depth="3" style="font-size: small">
+                            {{ element.id }}
+                          </n-text>
+                        </template>
+                      </n-card>
                     </template>
-                    <template #header-extra>
-                      <n-text depth="3" style="font-size: small">
-                        {{ item.id }}
-                      </n-text>
-                    </template>
-                  </n-card>
+                  </draggable>
+
                   <n-button v-if="npcInfoContext.isEditMode"
                             style="border-radius: 7px;" dashed
                             @click="addLocalFamiliarLevel">
@@ -547,6 +577,14 @@ function applyDeleteCurrentNpc() {
 
 .selected-n-card:hover {
   background-color: rgba(42, 148, 125, 0.25);
+  cursor: pointer;
+}
+
+.force-selected-hovered-n-card {
+  border-radius: 7px;
+  border-width: 2px;
+  background-color: rgba(42, 148, 125, 0.25);
+  border-color: #63e2b7;
   cursor: pointer;
 }
 </style>
