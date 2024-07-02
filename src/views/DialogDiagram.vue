@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import DialogNode from '@/components/DialogNode.vue'
 import { ConnectionMode, useVueFlow, VueFlow } from '@vue-flow/core'
 import StartNode from '@/components/StartNode.vue'
@@ -8,7 +8,7 @@ import FunctionManager from '@/components/FunctionManager.vue'
 import router from '@/router/index.js'
 import { useRoute } from 'vue-router'
 
-const { onConnect, onNodeDragStop, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
+const { onConnect, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
 
 const vueFlowInstance = ref(null)
 
@@ -82,20 +82,21 @@ function loadDiagram(familiarID) {
           }
         }
       ];
-    for(let i = 0; i < 20; i++) {
-      nodes.value.push({
-        id: '0'+i,
-        type: 'dialog',
-        position: { x: Math.floor(i/10) * 550 + 850, y: i%10 * 400},
-        connectable: true,
-        draggable: true,
-        data:{
-          outConnections: {},
-          requirePush:false
-        }
-      })
-    }
     edges.value = []
+    // for(let i = 0; i < 500; i++) {
+    //   nodes.value.push({
+    //     id: '0'+i,
+    //     type: 'dialog',
+    //     position: { x: i/10 * 550 + 850, y: i%10 * 400 + i},
+    //     connectable: true,
+    //     draggable: true,
+    //     data:{
+    //       outConnections: {},
+    //       requirePush:false
+    //     }
+    //   })
+    //   addEdge({source: '0'+(i-1),target: '0'+i,sourceHandle:'defaultNext',targetHandle:'left'})
+    // }
   } else {
     nodes.value = []
     edges.value = []
@@ -307,6 +308,31 @@ function pushAllNodes() {
     nodes.value[i].data.requirePush = true
   }
 }
+
+function handleNodeInScreenChange(id, value) {
+  let node = nodes.value.find(p=>p.id === id)
+  node.connectable = value
+  node.draggable = value
+}
+
+const screenRect = ref({x1:0,x2:0,y1:0,y2:0})
+
+function recalculateScreenRect() {
+  if(!vueFlowInstance.value) return
+  let corner1 = vueFlowInstance.value.project({x:-10,y:-10})
+  let corner2 = vueFlowInstance.value.project({x:window.outerWidth+10,y:window.outerHeight+10})
+  screenRect.value = {x1:corner1.x,x2:corner2.x,y1:corner1.y,y2:corner2.y}
+}
+
+const timer = ref()
+
+onMounted(()=>{
+  timer.value = setInterval(recalculateScreenRect, 100)
+})
+
+onUnmounted(()=>{
+  clearInterval(timer.value)
+})
 </script>
 
 <template>
@@ -326,17 +352,19 @@ function pushAllNodes() {
     </n-empty>
     <div v-else style="height: 100%; width: 100%;">
       <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict"
-               @pane-ready="onPaneReady" min-zoom="0.05">
+               @pane-ready="onPaneReady" min-zoom="0.5">
         <template #node-dialog="props">
           <DialogNode :id="props.id"
                       :connections="props.data.outConnections"
                       :position="props.position"
+                      :screenRect="screenRect"
                       v-model:require-push="props.data.requirePush"
                       @selection-move-up="swapSelectionEdges"
                       @selectionMoveDown="swapSelectionEdges"
                       @selection-removed="removeSelection"
                       @node-removed="removeNode"
                       @input-change="handleNodeInputChange"
+                      @in-screen-change="handleNodeInScreenChange"
           />
         </template>
         <template #node-start="props">
@@ -403,5 +431,4 @@ function pushAllNodes() {
 </template>
 
 <style scoped>
-
 </style>
