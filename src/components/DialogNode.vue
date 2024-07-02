@@ -2,12 +2,12 @@
 import { Handle, Position } from '@vue-flow/core'
 import { computed, ref, watch } from 'vue'
 
-const props = defineProps(['id', 'connections'])
-const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved'])
+const props = defineProps(['id', 'connections', 'position'])
+const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved', 'inputChange'])
 const requirePush = defineModel('requirePush', {default:false})
 
 watch(requirePush, (newVal, oldVal)=>{
-  if(newVal && isDirty) {
+  if(newVal&&isDirty) {
     handlePush()
     requirePush.value = false
   }
@@ -166,6 +166,10 @@ function copyNodeInputData(){
   }
 }
 
+watch(isDirty, (newVal, oldVal)=>{
+  emit('inputChange', props.id, newVal)
+})
+
 </script>
 
 <template>
@@ -214,10 +218,6 @@ function copyNodeInputData(){
         </template>
         <span style="width:100%;text-align: center">Remove dialog node</span>
       </n-popconfirm>
-      <n-button-group style="padding-top: 5px; position: absolute; right: 10px" size="tiny">
-
-
-      </n-button-group>
     </n-h6>
     <n-card
       style="height: 200px;padding-top: 8px"
@@ -307,20 +307,20 @@ function copyNodeInputData(){
           </n-popconfirm>
         </n-button-group>
       </template>
-      <n-space vertical>
+      <n-flex vertical>
         <n-input
           class="nodrag"
           v-model:value="selection.text"
           type="text"
           placeholder="Selection Text"
         />
-        <n-space>
-          <n-select style="width: 169px" size="small" v-model:value="selection.condition" :options="conditionOptions"
+        <n-flex align="center" style="flex-wrap: nowrap;gap:8px">
+          <n-select style="" size="small" v-model:value="selection.condition" :options="conditionOptions"
                     placeholder="Condition" />
-          <n-select style="width: 169px" size="small" v-model:value="selection.trigger" :options="triggerOptions"
+          <n-select style="" size="small" v-model:value="selection.trigger" :options="triggerOptions"
                     placeholder="Trigger" />
-        </n-space>
-      </n-space>
+        </n-flex>
+      </n-flex>
     </n-card>
     <n-button type="info" tertiary style="width: 400px; margin-top: 6px" @click="addSelection">
       Add selection
@@ -341,9 +341,11 @@ function copyNodeInputData(){
 <style scoped>
 
 .vue-flow__handle {
-  height: 24px;
+  height: 36px;
   width: 10px;
-  border-radius: 4px;
+  border-radius: 5px;
+  border-width: 1px;
+  border-color: #484848;
   background-color: deeppink;
 }
 
@@ -352,5 +354,10 @@ function copyNodeInputData(){
   width: 400px;
   border-radius: 8px;
   margin-top: 5px;
+  border-width: 3px;
+}
+
+.n-card:hover{
+  border-color: #63e2b7;
 }
 </style>

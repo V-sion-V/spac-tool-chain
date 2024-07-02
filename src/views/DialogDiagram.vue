@@ -40,11 +40,12 @@ function loadDiagram(familiarID) {
         {
           id: '0',
           type: 'start',
-          position: { x: 50, y: 50 },
+          position: { x: 50, y: 100 },
           connectable: true,
           draggable: false,
           data:{
-            outConnections: {}
+            outConnections: {},
+            requirePush:false
           }
         },
         {
@@ -54,7 +55,8 @@ function loadDiagram(familiarID) {
           connectable: true,
           draggable: true,
           data:{
-            outConnections: {}
+            outConnections: {},
+            requirePush:false
           }
         },
         {
@@ -64,7 +66,8 @@ function loadDiagram(familiarID) {
           connectable: true,
           draggable: true,
           data:{
-            outConnections: {}
+            outConnections: {},
+            requirePush:false
           }
         },
         {
@@ -74,10 +77,24 @@ function loadDiagram(familiarID) {
           connectable: true,
           draggable: true,
           data:{
-            outConnections: {}
+            outConnections: {},
+            requirePush:false
           }
         }
       ];
+    for(let i = 0; i < 20; i++) {
+      nodes.value.push({
+        id: '0'+i,
+        type: 'dialog',
+        position: { x: Math.floor(i/10) * 550 + 850, y: i%10 * 400},
+        connectable: true,
+        draggable: true,
+        data:{
+          outConnections: {},
+          requirePush:false
+        }
+      })
+    }
     edges.value = []
   } else {
     nodes.value = []
@@ -127,7 +144,8 @@ onConnectEnd((event) => {
           position: pos,
           connectable: true,
           data: {
-            outConnections:{}
+            outConnections:{},
+            requirePush:false
           }
         }
         nodes.value.push(node)
@@ -271,6 +289,24 @@ function loadTriggerDrawerContent() {
 function onCloseTriggerDrawer() {
   triggerDrawerContext.value.loading = true
 }
+
+const dirtyNodes = new ref([])
+
+function handleNodeInputChange(id, isDirty) {
+  if(isDirty) {
+    dirtyNodes.value.push(id)
+  } else {
+    let index = dirtyNodes.value.indexOf(id)
+    if(index>=0)
+      dirtyNodes.value.splice(index, 1)
+  }
+}
+
+function pushAllNodes() {
+  for(let i = 0; i < nodes.value.length; i++) {
+    nodes.value[i].data.requirePush = true
+  }
+}
 </script>
 
 <template>
@@ -288,20 +324,27 @@ function onCloseTriggerDrawer() {
         </n-text>
       </n-flex>
     </n-empty>
-    <div v-else style="height: 100%; width: 100%">
+    <div v-else style="height: 100%; width: 100%;">
       <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict"
-               @pane-ready="onPaneReady">
+               @pane-ready="onPaneReady" min-zoom="0.05">
         <template #node-dialog="props">
           <DialogNode :id="props.id"
                       :connections="props.data.outConnections"
-                      @selectionMoveUp="swapSelectionEdges"
+                      :position="props.position"
+                      v-model:require-push="props.data.requirePush"
+                      @selection-move-up="swapSelectionEdges"
                       @selectionMoveDown="swapSelectionEdges"
-                      @selectionRemoved="removeSelection"
-                      @nodeRemoved="removeNode"
+                      @selection-removed="removeSelection"
+                      @node-removed="removeNode"
+                      @input-change="handleNodeInputChange"
           />
         </template>
         <template #node-start="props">
-          <StartNode v-bind="props" />
+          <StartNode :id="props.id"
+                     :connections="props.data.outConnections"
+                     v-model:require-push="props.data.requirePush"
+                     @input-change="handleNodeInputChange"
+          />
         </template>
       </VueFlow>
     </div>
@@ -314,7 +357,7 @@ function onCloseTriggerDrawer() {
         </svg>
       </n-icon>
     </n-float-button>
-    <n-float-button type="primary" :left="20" :bottom="170" shape="circle"  @click="">
+    <n-float-button :type="dirtyNodes.length > 0 ? 'primary':'default'" :left="20" :bottom="170" shape="circle"  @click="pushAllNodes">
       <n-icon>
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
           <path d="M11 18l1.41 1.41L15 16.83V29h2V16.83l2.59 2.58L21 18l-5-5l-5 5z" fill="currentColor"></path>
@@ -360,4 +403,5 @@ function onCloseTriggerDrawer() {
 </template>
 
 <style scoped>
+
 </style>
