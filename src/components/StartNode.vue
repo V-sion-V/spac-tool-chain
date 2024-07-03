@@ -1,37 +1,28 @@
 <script setup>
 import { Handle, Position } from '@vue-flow/core'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
-const props = defineProps(['id', 'connections', 'requirePush'])
-const requirePush = defineModel('requirePush', {default:false})
-const emit = defineEmits(['inputChange'])
-
-watch(requirePush, (newVal, oldVal)=>{
-  if(newVal&&isDirty) {
-    handlePush()
-    requirePush.value = false
-  }
-})
-
-const next = ref(undefined)
+const props = defineProps(['id'])
+const data = defineModel('data')
+const emit = defineEmits(['inputChange','requirePush'])
 
 const isDirty = computed(()=> {
-  return props.connections.nextDefault !== next.value
+  return data.value.outConnections.nextDefault !== data.value.lastNext
 })
 
-function handlePush() {
-  next.value = props.connections.nextDefault
-}
-
-watch(isDirty, (newVal, oldVal)=>{
+watch(()=>isDirty.value, (newVal, oldVal)=>{
   emit('inputChange',props.id, newVal)
+})
+
+onMounted(()=>{
+  emit('inputChange',props.id, isDirty.value)
 })
 </script>
 
 <template>
   <n-flex vertical align="center" style="gap: 7px">
     <n-button :tertiary="!isDirty" type="primary" style="width: 50px" size="tiny"
-              @click="handlePush">
+              @click="emit('requirePush', data)">
       <template #icon>
         <n-icon>
           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">

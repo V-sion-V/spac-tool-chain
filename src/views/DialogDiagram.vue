@@ -7,26 +7,55 @@ import NpcViewer from '@/components/NpcViewer.vue'
 import FunctionManager from '@/components/FunctionManager.vue'
 import router from '@/router/index.js'
 import { useRoute } from 'vue-router'
+import { MiniMap } from '@vue-flow/minimap'
 
 const { onConnect, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
 
 const vueFlowInstance = ref(null)
 
-const nodes = ref([{
-  id: '0',
-  type: 'start',
-  position: { x: 50, y: 50 },
-  connectable: true,
-  draggable: false,
-  data:{
-    outConnections: {}
+function newStartNode() {
+  return {
+    id: 'start',
+    type: 'start',
+    position: { x: 50, y: 50 },
+    connectable: true,
+    draggable: false,
+    data:{
+      outConnections: {},
+      lastNext: undefined
+    }
   }
-}])
+}
+function newDialogNode() {
+  return {
+    id: '0',
+    type: 'dialog',
+    position: { x: 50, y: 50 },
+    connectable: true,
+    draggable: true,
+    data:{
+      outConnections: {},
+      nodeInput: {
+        speakerName: '',
+        text: '',
+        nextMode: 'condition',
+        nextDefault: undefined,
+        selections: []
+      },
+      lastNodeInput:{
+        speakerName: '',
+        text: '',
+        nextMode: 'condition',
+        nextDefault: undefined,
+        selections: []
+      }
+    }
+  }
+}
+const nodes = ref([])
 const edges = ref([])
-
+const isVueFlowReady = ref(false)
 const route = useRoute()
-
-loadDiagram(route.params.id)
 
 watch(() => route.params.id,
   (newId, oldId) => {
@@ -34,69 +63,20 @@ watch(() => route.params.id,
   })
 
 function loadDiagram(familiarID) {
+  isVueFlowReady.value = false
   if (familiarID !== '0') {
-    nodes.value =
-      [
-        {
-          id: '0',
-          type: 'start',
-          position: { x: 50, y: 100 },
-          connectable: true,
-          draggable: false,
-          data:{
-            outConnections: {},
-            requirePush:false
-          }
-        },
-        {
-          id: '000001',
-          type: 'dialog',
-          position: { x: 300, y: 50 },
-          connectable: true,
-          draggable: true,
-          data:{
-            outConnections: {},
-            requirePush:false
-          }
-        },
-        {
-          id: '000002',
-          type: 'dialog',
-          position: { x: 850, y: 50 },
-          connectable: true,
-          draggable: true,
-          data:{
-            outConnections: {},
-            requirePush:false
-          }
-        },
-        {
-          id: '000003',
-          type: 'dialog',
-          position: { x: 850, y: 450 },
-          connectable: true,
-          draggable: true,
-          data:{
-            outConnections: {},
-            requirePush:false
-          }
-        }
-      ];
+    nodes.value = [newStartNode()];
     edges.value = []
-    // for(let i = 0; i < 500; i++) {
-    //   nodes.value.push({
-    //     id: '0'+i,
-    //     type: 'dialog',
-    //     position: { x: i/10 * 550 + 850, y: i%10 * 400 + i},
-    //     connectable: true,
-    //     draggable: true,
-    //     data:{
-    //       outConnections: {},
-    //       requirePush:false
-    //     }
-    //   })
-    //   addEdge({source: '0'+(i-1),target: '0'+i,sourceHandle:'defaultNext',targetHandle:'left'})
-    // }
+    for(let i = 0; i < 1000; i++) {
+      let node = newDialogNode()
+      node.id = '0'+i
+      node.position = { x: i/10 * 550 + 850, y: i%10 * 400 + i}
+      nodes.value.push(node)
+      if (i !==0)
+        addEdge({source: '0'+(i-1),target: '0'+i,sourceHandle:'nextDefault',targetHandle:'left'})
+      else
+        addEdge({source: 'start',target: '0'+i,sourceHandle:'nextDefault',targetHandle:'left'})
+    }
   } else {
     nodes.value = []
     edges.value = []
@@ -107,6 +87,7 @@ const isConnectedThisFrame = ref(false)
 const lastConnectStartInfo = ref({ source: '', sourceHandle: '' })
 
 function onPaneReady(instance) {
+  isVueFlowReady.value = true
   vueFlowInstance.value = instance
 }
 
@@ -139,16 +120,9 @@ onConnectEnd((event) => {
       }
       if (canAddEdge(connection)) {
         pos.y -= 125
-        let node = {
-          id: newDialogId,
-          type: 'dialog',
-          position: pos,
-          connectable: true,
-          data: {
-            outConnections:{},
-            requirePush:false
-          }
-        }
+        let node = newDialogNode()
+        node.id = newDialogId
+        node.position = pos
         nodes.value.push(node)
         addEdge(connection)
       }
@@ -264,79 +238,51 @@ function removeNode(id) {
 }
 
 const showNpcSelector = ref(false)
+const showConditionDrawer = ref(false)
+const showTriggerDrawer= ref(false)
 
-const conditionDrawerContext = ref({
-  show: false,
-  loading: true
-})
-
-function loadConditionDrawerContent() {
-  conditionDrawerContext.value.loading = false
-}
-
-function onCloseConditionDrawer() {
-  conditionDrawerContext.value.loading = true
-}
-
-const triggerDrawerContext = ref({
-  show: false,
-  loading: true
-})
-
-function loadTriggerDrawerContent() {
-  triggerDrawerContext.value.loading = false
-}
-
-function onCloseTriggerDrawer() {
-  triggerDrawerContext.value.loading = true
-}
-
-const dirtyNodes = new ref([])
-
+const dirtyNodes = ref(new Map())
 function handleNodeInputChange(id, isDirty) {
-  if(isDirty) {
-    dirtyNodes.value.push(id)
-  } else {
-    let index = dirtyNodes.value.indexOf(id)
-    if(index>=0)
-      dirtyNodes.value.splice(index, 1)
+  if(isDirty && !dirtyNodes.value.has(id)) {
+    dirtyNodes.value.set(id, 'true')
+  } else if (!isDirty && dirtyNodes.value.has(id)) {
+    dirtyNodes.value.delete(id)
   }
+}
+
+function pushDialogNode(data, position) {
+  data.lastNodeInput = JSON.parse(JSON.stringify(data.nodeInput))
+  data.lastNodeInput.position = position
+  data.lastNodeInput.nextDefault = data.outConnections['nextDefault']
+  for(let i = 0; i < data.lastNodeInput.selections.length; i++) {
+    data.lastNodeInput.selections[i].next = data.outConnections['next'+i]
+  }
+  console.log('dialog node update: ',data.lastNodeInput)
+}
+
+function pushStartNode(data) {
+  data.lastNext = data.outConnections['nextDefault']
+  console.log('start node update: ',data.lastNext)
 }
 
 function pushAllNodes() {
-  for(let i = 0; i < nodes.value.length; i++) {
-    nodes.value[i].data.requirePush = true
+  for (let i = 0; i < nodes.value.length; i++) {
+    let node = nodes.value[i]
+    if (dirtyNodes.value.has(node.id)){
+      if (node.type==='dialog') pushDialogNode(node.data, node.position)
+      else pushStartNode(node.data)
+      dirtyNodes.value.delete(node.id)
+    }
   }
 }
 
-function handleNodeInScreenChange(id, value) {
-  let node = nodes.value.find(p=>p.id === id)
-  node.connectable = value
-  node.draggable = value
-}
-
-const screenRect = ref({x1:0,x2:0,y1:0,y2:0})
-
-function recalculateScreenRect() {
-  if(!vueFlowInstance.value) return
-  let corner1 = vueFlowInstance.value.project({x:-10,y:-10})
-  let corner2 = vueFlowInstance.value.project({x:window.outerWidth+10,y:window.outerHeight+10})
-  screenRect.value = {x1:corner1.x,x2:corner2.x,y1:corner1.y,y2:corner2.y}
-}
-
-const timer = ref()
-
 onMounted(()=>{
-  timer.value = setInterval(recalculateScreenRect, 100)
-})
-
-onUnmounted(()=>{
-  clearInterval(timer.value)
+  loadDiagram(route.params.id)
 })
 </script>
 
 <template>
-  <div style="height: 100%; width: 100%">
+  <n-layout style="height: 100%; width: 100%">
     <n-empty v-if="route.params.id === '0'"
              style="width: 100%;height: 100%; display: flex; justify-content: center; align-items: center;"
              size="huge" :show-icon="false"
@@ -351,27 +297,20 @@ onUnmounted(()=>{
       </n-flex>
     </n-empty>
     <div v-else style="height: 100%; width: 100%;">
-      <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict"
-               @pane-ready="onPaneReady" min-zoom="0.5">
+      <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict" style="background-color:rgb(16, 16, 20)"
+               @pane-ready="onPaneReady" min-zoom="0.5" :only-render-visible-elements="true">
         <template #node-dialog="props">
-          <DialogNode :id="props.id"
-                      :connections="props.data.outConnections"
-                      :position="props.position"
-                      :screenRect="screenRect"
-                      v-model:require-push="props.data.requirePush"
-                      @selection-move-up="swapSelectionEdges"
-                      @selectionMoveDown="swapSelectionEdges"
-                      @selection-removed="removeSelection"
+          <DialogNode :id="props.id" :position="props.position"
+                      v-model:data="props.data"
+                      @selection-move-up="swapSelectionEdges" @selection-move-down="swapSelectionEdges" @selection-removed="removeSelection"
                       @node-removed="removeNode"
-                      @input-change="handleNodeInputChange"
-                      @in-screen-change="handleNodeInScreenChange"
+                      @input-change="handleNodeInputChange" @require-push="pushDialogNode"
           />
         </template>
         <template #node-start="props">
           <StartNode :id="props.id"
-                     :connections="props.data.outConnections"
-                     v-model:require-push="props.data.requirePush"
-                     @input-change="handleNodeInputChange"
+                     v-model:data="props.data"
+                     @input-change="handleNodeInputChange" @require-push="pushStartNode"
           />
         </template>
       </VueFlow>
@@ -385,7 +324,7 @@ onUnmounted(()=>{
         </svg>
       </n-icon>
     </n-float-button>
-    <n-float-button :type="dirtyNodes.length > 0 ? 'primary':'default'" :left="20" :bottom="170" shape="circle"  @click="pushAllNodes">
+    <n-float-button :type="dirtyNodes.size > 0 ? 'primary':'default'" :left="20" :bottom="170" shape="circle"  @click="pushAllNodes">
       <n-icon>
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
           <path d="M11 18l1.41 1.41L15 16.83V29h2V16.83l2.59 2.58L21 18l-5-5l-5 5z" fill="currentColor"></path>
@@ -406,7 +345,7 @@ onUnmounted(()=>{
         </svg>
       </n-icon>
     </n-float-button>
-    <n-float-button :left="20" :bottom="70" shape="circle" @click="conditionDrawerContext.show = true">
+    <n-float-button :left="20" :bottom="70" shape="circle" @click="showConditionDrawer = true">
       <n-icon>
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
           <path
@@ -415,7 +354,7 @@ onUnmounted(()=>{
         </svg>
       </n-icon>
     </n-float-button>
-    <n-float-button :left="20" :bottom="20" shape="circle" @click="triggerDrawerContext.show = true">
+    <n-float-button :left="20" :bottom="20" shape="circle" @click="showTriggerDrawer = true">
       <n-icon>
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
           <path
@@ -425,9 +364,9 @@ onUnmounted(()=>{
       </n-icon>
     </n-float-button>
     <npc-viewer v-model:show="showNpcSelector" @select-familiar-level="(id)=>{router.push({path:`/dialog/${id}`})}" />
-    <function-manager v-model:show="conditionDrawerContext.show" function-type="condition" />
-    <function-manager v-model:show="triggerDrawerContext.show" function-type="trigger" />
-  </div>
+    <function-manager v-model:show="showConditionDrawer" function-type="condition" />
+    <function-manager v-model:show="showTriggerDrawer" function-type="trigger" />
+  </n-layout>
 </template>
 
 <style scoped>
