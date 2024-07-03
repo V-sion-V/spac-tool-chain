@@ -3,7 +3,7 @@ import { Handle, Position } from '@vue-flow/core'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps(['id','position'])
-const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved', 'inputChange','requirePush'])
+const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved', 'inputChange','positionChange','requirePush'])
 const data = defineModel('data')
 
 const selectionIdCount = ref(data.value.nodeInput.selections.length)
@@ -132,6 +132,10 @@ watch(()=>isDirty.value, (newVal, oldVal)=>{
   emit('inputChange', props.id, newVal)
 })
 
+watch(()=>props.position, (newVal, oldVal)=>{
+  emit('positionChange', props.id, newVal)
+})
+
 onMounted(()=>{
   emit('inputChange',props.id, isDirty.value)
 })
@@ -148,7 +152,7 @@ onMounted(()=>{
           {{ props.id }}
         </n-text>
         <n-button :tertiary="!isDirty" type="primary" style="position: absolute; right: 67px; top:2px; width: 50px" size="tiny"
-                  @click="emit('requirePush', data, position)">
+                  @click="emit('requirePush', data, props.position)">
           <template #icon>
             <n-icon>
               <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">

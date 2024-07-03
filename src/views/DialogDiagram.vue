@@ -282,9 +282,13 @@ function handleNodeInputChange(id, isDirty) {
   }
 }
 
+function handlePositionChange(id, position) {
+  nodes.value.find(n => n.id === id).position = position
+}
+
 function pushDialogNode(data, position) {
   data.lastNodeInput = JSON.parse(JSON.stringify(data.nodeInput))
-  data.lastNodeInput.position = position
+  data.lastNodeInput.position = JSON.parse(JSON.stringify(position))
   data.lastNodeInput.nextDefault = data.outConnections['nextDefault']
   for(let i = 0; i < data.lastNodeInput.selections.length; i++) {
     data.lastNodeInput.selections[i].next = data.outConnections['next'+i]
@@ -307,6 +311,46 @@ function pushAllNodes() {
       dirtyNodes.value.delete(node.id)
     }
   }
+}
+
+const searchInput = ref('')
+const searchResult = computed(()=>{
+  let ret = []
+  nodes.value.forEach((node)=>{
+    if (node.type === 'start') {
+      if ('start'.includes(searchInput.value)) {
+        ret.push({value: node.id, label: "[Start node]"})
+      }
+    } else {
+      if (node.id.includes(searchInput.value)) {
+        ret.push({value: node.id, label: "[ID] "+node.id})
+        return
+      }
+      let index = node.data.nodeInput.speakerName.indexOf(searchInput.value)
+      if (index!==-1) {
+        ret.push({value: node.id, label: "[Speaker] "+node.data.nodeInput.speakerName.slice(Math.max(0, index-3), Math.min(index+3, node.data.nodeInput.speakerName.length))})
+        return
+      }
+      index = node.data.nodeInput.text.indexOf(searchInput.value)
+      if (index!==-1) {
+        ret.push({value: node.id, label: "[Text] "+node.data.nodeInput.text.slice(Math.max(0, index-3), Math.min(index+3, node.data.nodeInput.text.length))})
+        return
+      }
+      for (let i = 0; i<node.data.nodeInput.selections.length; i++ ) {
+        let selection = node.data.nodeInput.selections[i]
+        index = selection.text.indexOf(searchInput.value)
+        if (index!==-1) {
+          ret.push({value: node.id, label: "[Selection "+i+"] "+selection.text.slice(Math.max(0, index-3), Math.min(index+3, selection.text.length))})
+          return
+        }
+      }
+    }
+  })
+  return ret
+})
+
+function gotoNode(id) {
+  vueFlowInstance.value.fitView({ nodes: [id], maxZoom: 1 })
 }
 
 onMounted(()=>{
@@ -349,7 +393,7 @@ onMounted(()=>{
           <DialogNode :id="props.id" :position="props.position"
                       v-model:data="props.data"
                       @selection-move-up="swapSelectionEdges" @selection-move-down="swapSelectionEdges" @selection-removed="removeSelection"
-                      @node-removed="removeNode"
+                      @node-removed="removeNode" @position-change="handlePositionChange"
                       @input-change="handleNodeInputChange" @require-push="pushDialogNode"
           />
         </template>
@@ -362,15 +406,6 @@ onMounted(()=>{
       </VueFlow>
     </div>
     <n-flex vertical v-if="diagramLoadingContext.isVueFlowReady" >
-      <n-float-button :left="20" :top="20" shape="circle" @click="router.push('/')">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-            <path
-              d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
-              fill="currentColor"></path>
-          </svg>
-        </n-icon>
-      </n-float-button>
       <n-float-button :type="dirtyNodes.size > 0 ? 'primary':'default'" :left="20" :bottom="170" shape="circle"  @click="pushAllNodes">
         <n-icon>
           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
@@ -410,6 +445,26 @@ onMounted(()=>{
           </svg>
         </n-icon>
       </n-float-button>
+    </n-flex>
+    <n-flex id="top-bar" v-if="diagramLoadingContext.isVueFlowReady"
+            style="position: fixed; top: 20px;width: 1000px;left: 20px; height: 40px;flex-wrap: nowrap"
+            justify="left" align="center" gap="20px"
+    >
+      <n-button circle size="large" @click="router.push('/')">
+        <n-icon>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+            <path
+              d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
+              fill="currentColor"></path>
+          </svg>
+        </n-icon>
+      </n-button>
+      <n-auto-complete style="margin-left: 10px;height: 36px;width: 300px" 
+                       v-model:value="searchInput" :options="searchResult"
+                       blur-after-select clear-after-select
+                       @select="gotoNode"
+                       placeholder="Search for anything">
+      </n-auto-complete>
     </n-flex>
     <npc-viewer v-model:show="showNpcSelector" @select-familiar-level="(id)=>{router.push({path:`/dialog/${id}`})}" />
     <function-manager v-model:show="showConditionDrawer" function-type="condition" />
