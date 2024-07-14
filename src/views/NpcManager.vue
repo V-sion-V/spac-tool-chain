@@ -68,7 +68,7 @@ function loadNpcList() {
     npcListContext.value.npcList = res.data.npcList
     npcListContext.value.npcList.sort((a, b) => a.npcID.localeCompare(b.npcID))
   }).catch((e) => {
-    console.log(e)
+    console.log(e) //todo:show error message
   })
 }
 
@@ -82,7 +82,7 @@ function changeCurrentNpc(index) {
     npcInfoContext.value.currentNpcInfo = res.data
     npcInfoContext.value.savedCurrentNpcInfo = JSON.parse(JSON.stringify(npcInfoContext.value.currentNpcInfo))
   }).catch((e) => {
-    console.log(e)
+    console.log(e) //todo:show error message
   })
 }
 
@@ -169,7 +169,7 @@ function applyCurrentChanges() {
     axios.post('/npc/add', data).then((res)=>{
       loadNpcList()
     }).catch((e)=>{
-      console.log(e)
+      console.log(e)//todo:show error message
     })
   } else {
     let data = {id:current.id, npcID:current.npcID, name: current.name, familiarList: []}
@@ -177,7 +177,7 @@ function applyCurrentChanges() {
     axios.post('/npc/update', data).then((res)=>{
       loadNpcList()
     }).catch((e)=>{
-      console.log(e)
+      console.log(e)//todo:show error message
     })
   }
 }
@@ -187,7 +187,7 @@ function applyDeleteCurrentNpc() {
   axios.post('/npc/delete', { id: currentID }).then((res) => {
     loadNpcList()
   }).catch((e) => {
-    console.log(e)
+    console.log(e)//todo:show error message
   })
 }
 

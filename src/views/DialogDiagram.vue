@@ -7,6 +7,7 @@ import NpcViewer from '@/components/NpcViewer.vue'
 import FunctionManager from '@/components/FunctionManager.vue'
 import router from '@/router/index.js'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 
 const { onConnect, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
 const route = useRoute()
@@ -18,12 +19,13 @@ function newStartNode() {
     position: { x: 50, y: 50 },
     connectable: true,
     draggable: false,
-    data:{
+    data: {
       outConnections: {},
       lastNext: undefined
     }
   }
 }
+
 function newDialogNode() {
   return {
     id: '0',
@@ -31,7 +33,7 @@ function newDialogNode() {
     position: { x: 50, y: 50 },
     connectable: true,
     draggable: true,
-    data:{
+    data: {
       outConnections: {},
       nodeInput: {
         speakerName: '',
@@ -40,7 +42,7 @@ function newDialogNode() {
         nextDefault: undefined,
         selections: []
       },
-      lastNodeInput:{
+      lastNodeInput: {
         speakerName: '',
         text: '',
         nextMode: 'condition',
@@ -61,8 +63,8 @@ watch(() => route.params.id,
   })
 
 const diagramLoadingContext = ref({
-  currentIndex:0,
-  totalCount:1,
+  currentIndex: 0,
+  totalCount: 1,
   loadNodeTimer: ref(),
   isVueFlowReady: false
 })
@@ -71,7 +73,7 @@ function loadDiagram(familiarID) {
   let nodeCount = 100
   diagramLoadingContext.value.isVueFlowReady = false
   if (familiarID !== '0') {
-    nodes.value = [newStartNode()];
+    nodes.value = [newStartNode()]
     edges.value = []
     //todo:load node list from backend
     diagramLoadingContext.value.totalCount = nodeCount
@@ -87,26 +89,26 @@ function loadNode(start, end, batch) {
   //todo:load node from backend
   diagramLoadingContext.value.currentIndex = start + batch
   let i = start
-  while(i<start+batch && i < end) {
+  while (i < start + batch && i < end) {
     let node = newDialogNode()
-    node.id = '0'+i
-    node.position = { x: i/10 * 550 + 850, y: i%10 * 400 + i}
+    node.id = '0' + i
+    node.position = { x: i / 10 * 550 + 850, y: i % 10 * 400 + i }
     nodes.value.push(node)
-    if (i !==0)
-      addEdge({source: '0'+(i-1),target: '0'+i,sourceHandle:'nextDefault',targetHandle:'left'})
+    if (i !== 0)
+      addEdge({ source: '0' + (i - 1), target: '0' + i, sourceHandle: 'nextDefault', targetHandle: 'left' })
     else
-      addEdge({source: 'start',target: '0'+i,sourceHandle:'nextDefault',targetHandle:'left'})
+      addEdge({ source: 'start', target: '0' + i, sourceHandle: 'nextDefault', targetHandle: 'left' })
     i++
   }
   if (i < end) {
     diagramLoadingContext.value.loadNodeTimer = setTimeout(loadNode, 200, i, end, batch)
-  } else{
+  } else {
     diagramLoadingContext.value.loadNodeTimer = setTimeout(postLoadDiagram, 200)
   }
 }
 
 function postLoadDiagram() {
-  pushAllNodes()
+  pushAllNodes(false)
   diagramLoadingContext.value.loadNodeTimer = setTimeout(showDiagram, 200)
 }
 
@@ -196,7 +198,9 @@ function addEdge(connection) {
   }
 }
 
-function getID(connection) {return connection.source + connection.sourceHandle + '-' + connection.target + connection.targetHandle}
+function getID(connection) {
+  return connection.source + connection.sourceHandle + '-' + connection.target + connection.targetHandle
+}
 
 function swapSelectionEdges(id, index1, index2) {
   let edge1 = edges.value.find((e) => e.source === id && e.sourceHandle === ('next' + index1))
@@ -225,7 +229,7 @@ function removeSelection(id, start, end) {
   for (let i = start; i < end; i++) {
     let edge = outEdges.find((e) => e.sourceHandle === ('next' + (i + 1)))
     let sourceNode = nodes.value.find(n => n.id === id)
-    if(sourceNode!== null) {
+    if (sourceNode !== null) {
       sourceNode.data.outConnections[('next' + (i + 1))] = null
       if (edge != null) {
         edge.sourceHandle = 'next' + i
@@ -237,7 +241,7 @@ function removeSelection(id, start, end) {
 }
 
 function removeEdge(edge) {
-  let index = edges.value.findIndex(e=>e.id === edge.id)
+  let index = edges.value.findIndex(e => e.id === edge.id)
   edges.value.splice(index, 1)
   let sourceNode = nodes.value.find(n => n.id === edge.source)
   if (sourceNode != null) {
@@ -265,17 +269,27 @@ function removeNode(id) {
   let inEdges = edges.value.filter(edge => edge.target === id)
   inEdges.forEach((i) => removeEdge(i))
   let node = nodes.value.find(n => n.id === id)
-  if (node != null)
+  if (node != null) {
     nodes.value.splice(nodes.value.indexOf(node), 1)
+    pushToBackendCounter.value++
+    axios.post('/dialog/delete', { dialogID: id }).then((res) => {
+    }).then((res) => {
+      pushToBackendCounter.value--
+      pushAllNodes(false)
+    }).catch((e) => {
+      console.log(e) //todo:show error message
+    })
+  }
 }
 
 const showNpcSelector = ref(false)
 const showConditionDrawer = ref(false)
-const showTriggerDrawer= ref(false)
+const showTriggerDrawer = ref(false)
 
 const dirtyNodes = ref(new Map())
+
 function handleNodeInputChange(id, isDirty) {
-  if(isDirty && !dirtyNodes.value.has(id)) {
+  if (isDirty && !dirtyNodes.value.has(id)) {
     dirtyNodes.value.set(id, 'true')
   } else if (!isDirty && dirtyNodes.value.has(id)) {
     dirtyNodes.value.delete(id)
@@ -286,61 +300,101 @@ function handlePositionChange(id, position) {
   nodes.value.find(n => n.id === id).position = position
 }
 
-function pushDialogNode(data, position) {
+const pushToBackendCounter = ref(0)
+
+function pushDialogNode(id, data, position, toBackend = false) {
   data.lastNodeInput = JSON.parse(JSON.stringify(data.nodeInput))
   data.lastNodeInput.position = JSON.parse(JSON.stringify(position))
   data.lastNodeInput.nextDefault = data.outConnections['nextDefault']
-  for(let i = 0; i < data.lastNodeInput.selections.length; i++) {
-    data.lastNodeInput.selections[i].next = data.outConnections['next'+i]
+  for (let i = 0; i < data.lastNodeInput.selections.length; i++) {
+    data.lastNodeInput.selections[i].next = data.outConnections['next' + i]
   }
-  console.log('dialog node update: ',data.lastNodeInput)
+  if (toBackend && id) {
+    pushToBackendCounter.value++
+    axios.post('/dialog/update', {
+      dialogID: id,
+      nextDefault: data.lastNodeInput.nextDefault,
+      speaker: data.lastNodeInput.speakerName,
+      content: data.lastNodeInput.text,
+      selections: data.lastNodeInput.selections.map(selection => {
+        return {
+          content: selection.text,
+          next: selection.next ? selection.next : null,
+          trigger: selection.trigger ? selection.trigger : null,
+          condition: selection.condition ? selection.condition : null
+        }
+      }),
+      posX: position.x,
+      posY: position.y
+    }).then((res) => {
+      pushToBackendCounter.value--
+    }).catch((e) => {
+      console.log(e) //todo:show error message
+    })
+  }
 }
 
-function pushStartNode(data) {
+function pushStartNode(data, toBackend = false) {
   data.lastNext = data.outConnections['nextDefault']
-  console.log('start node update: ',data.lastNext)
+  let familiarID = route.params.id
+  if (toBackend) {
+    pushToBackendCounter.value++
+    axios.post('/dialog/changeFirstDialog', { familiarID: familiarID, firstDialogID: data.lastNext }).then((res) => {
+      pushToBackendCounter.value--
+    }).catch((e) => {
+      console.log(e) //todo:show error message
+    })
+  }
 }
 
-function pushAllNodes() {
-  //todo:push all nodes to backend
+function pushAllNodes(toBackend = false) {
   for (let i = 0; i < nodes.value.length; i++) {
     let node = nodes.value[i]
-    if (dirtyNodes.value.has(node.id)){
-      if (node.type==='dialog') pushDialogNode(node.data, node.position)
-      else pushStartNode(node.data)
+    if (dirtyNodes.value.has(node.id)) {
+      if (node.type === 'dialog') pushDialogNode(node.id, node.data, node.position, toBackend)
+      else pushStartNode(node.data, toBackend)
       dirtyNodes.value.delete(node.id)
     }
   }
 }
 
 const searchInput = ref('')
-const searchResult = computed(()=>{
+const searchResult = computed(() => {
   let ret = []
-  nodes.value.forEach((node)=>{
+  nodes.value.forEach((node) => {
     if (node.type === 'start') {
       if ('start'.includes(searchInput.value)) {
-        ret.push({value: node.id, label: "[Start node]"})
+        ret.push({ value: node.id, label: '[Start node]' })
       }
     } else {
       if (node.id.includes(searchInput.value)) {
-        ret.push({value: node.id, label: "[ID] "+node.id})
+        ret.push({ value: node.id, label: '[ID] ' + node.id })
         return
       }
       let index = node.data.nodeInput.speakerName.indexOf(searchInput.value)
-      if (index!==-1) {
-        ret.push({value: node.id, label: "[Speaker] "+node.data.nodeInput.speakerName.slice(Math.max(0, index-3), Math.min(index+3, node.data.nodeInput.speakerName.length))})
+      if (index !== -1) {
+        ret.push({
+          value: node.id,
+          label: '[Speaker] ' + node.data.nodeInput.speakerName.slice(Math.max(0, index - 3), Math.min(index + 3, node.data.nodeInput.speakerName.length))
+        })
         return
       }
       index = node.data.nodeInput.text.indexOf(searchInput.value)
-      if (index!==-1) {
-        ret.push({value: node.id, label: "[Text] "+node.data.nodeInput.text.slice(Math.max(0, index-3), Math.min(index+3, node.data.nodeInput.text.length))})
+      if (index !== -1) {
+        ret.push({
+          value: node.id,
+          label: '[Text] ' + node.data.nodeInput.text.slice(Math.max(0, index - 3), Math.min(index + 3, node.data.nodeInput.text.length))
+        })
         return
       }
-      for (let i = 0; i<node.data.nodeInput.selections.length; i++ ) {
+      for (let i = 0; i < node.data.nodeInput.selections.length; i++) {
         let selection = node.data.nodeInput.selections[i]
         index = selection.text.indexOf(searchInput.value)
-        if (index!==-1) {
-          ret.push({value: node.id, label: "[Selection "+i+"] "+selection.text.slice(Math.max(0, index-3), Math.min(index+3, selection.text.length))})
+        if (index !== -1) {
+          ret.push({
+            value: node.id,
+            label: '[Selection ' + i + '] ' + selection.text.slice(Math.max(0, index - 3), Math.min(index + 3, selection.text.length))
+          })
           return
         }
       }
@@ -353,7 +407,7 @@ function gotoNode(id) {
   vueFlowInstance.value.fitView({ nodes: [id], maxZoom: 1 })
 }
 
-onMounted(()=>{
+onMounted(() => {
   loadDiagram(route.params.id)
 })
 </script>
@@ -369,7 +423,7 @@ onMounted(()=>{
           Loading...
         </n-text>
         <n-text depth="3" style="font-size: 20px">
-          {{diagramLoadingContext.currentIndex}}/{{diagramLoadingContext.totalCount}}
+          {{ diagramLoadingContext.currentIndex }}/{{ diagramLoadingContext.totalCount }}
         </n-text>
       </n-flex>
     </n-empty>
@@ -387,12 +441,14 @@ onMounted(()=>{
       </n-flex>
     </n-empty>
     <div v-else style="height: 100%; width: 100%;">
-      <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict" style="background-color:rgb(16, 16, 20)"
+      <VueFlow :nodes="nodes" :edges="edges" :connection-mode="ConnectionMode.Strict"
+               style="background-color:rgb(16, 16, 20)"
                @pane-ready="onPaneReady" min-zoom="0.5" :only-render-visible-elements="true">
         <template #node-dialog="props">
           <DialogNode :id="props.id" :position="props.position"
                       v-model:data="props.data"
-                      @selection-move-up="swapSelectionEdges" @selection-move-down="swapSelectionEdges" @selection-removed="removeSelection"
+                      @selection-move-up="swapSelectionEdges" @selection-move-down="swapSelectionEdges"
+                      @selection-removed="removeSelection"
                       @node-removed="removeNode" @position-change="handlePositionChange"
                       @input-change="handleNodeInputChange" @require-push="pushDialogNode"
           />
@@ -405,17 +461,7 @@ onMounted(()=>{
         </template>
       </VueFlow>
     </div>
-    <n-flex vertical v-if="diagramLoadingContext.isVueFlowReady" >
-      <n-float-button :type="dirtyNodes.size > 0 ? 'primary':'default'" :left="20" :bottom="170" shape="circle"  @click="pushAllNodes">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-            <path d="M11 18l1.41 1.41L15 16.83V29h2V16.83l2.59 2.58L21 18l-5-5l-5 5z" fill="currentColor"></path>
-            <path
-              d="M23.5 22H23v-2h.5a4.5 4.5 0 0 0 .36-9H23l-.1-.82a7 7 0 0 0-13.88 0L9 11h-.86a4.5 4.5 0 0 0 .36 9H9v2h-.5A6.5 6.5 0 0 1 7.2 9.14a9 9 0 0 1 17.6 0A6.5 6.5 0 0 1 23.5 22z"
-              fill="currentColor"></path>
-          </svg>
-        </n-icon>
-      </n-float-button>
+    <n-flex vertical v-if="diagramLoadingContext.isVueFlowReady">
       <n-float-button :left="20" :bottom="120" shape="circle" @click="showNpcSelector= true">
         <n-icon>
           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 28 28">
@@ -447,7 +493,8 @@ onMounted(()=>{
       </n-float-button>
     </n-flex>
     <n-flex id="top-bar" v-if="diagramLoadingContext.isVueFlowReady"
-            style="position: fixed; top: 20px;width: 1000px;left: 20px; height: 40px;flex-wrap: nowrap"
+            style="position: fixed; width: 100%; height: 70px;padding: 15px;
+            flex-wrap: nowrap;backdrop-filter: blur(15px);background-color: rgba(255, 255, 255, 0.1);"
             justify="left" align="center" gap="20px"
     >
       <n-button circle size="large" @click="router.push('/')">
@@ -459,12 +506,49 @@ onMounted(()=>{
           </svg>
         </n-icon>
       </n-button>
-      <n-auto-complete style="margin-left: 10px;height: 36px;width: 300px" 
+      <n-auto-complete style="margin-left: 10px;margin-right:10px;height: 36px;width: 300px;"
                        v-model:value="searchInput" :options="searchResult"
                        blur-after-select clear-after-select
                        @select="gotoNode"
-                       placeholder="Search for anything">
+                       placeholder="Search for anything"
+      >
+        <template #prefix>
+          <n-icon>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24">
+              <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="10" cy="10" r="7"></circle>
+                <path d="M21 21l-6-6"></path>
+              </g>
+            </svg>
+          </n-icon>
+        </template>
       </n-auto-complete>
+      <n-button :type="dirtyNodes.size > 0 ? 'primary':'default'" circle size="large"
+                @click="pushAllNodes(true)">
+        <template #icon>
+          <n-icon>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+              <path d="M11 18l1.41 1.41L15 16.83V29h2V16.83l2.59 2.58L21 18l-5-5l-5 5z" fill="currentColor"></path>
+              <path
+                d="M23.5 22H23v-2h.5a4.5 4.5 0 0 0 .36-9H23l-.1-.82a7 7 0 0 0-13.88 0L9 11h-.86a4.5 4.5 0 0 0 .36 9H9v2h-.5A6.5 6.5 0 0 1 7.2 9.14a9 9 0 0 1 17.6 0A6.5 6.5 0 0 1 23.5 22z"
+                fill="currentColor"></path>
+            </svg>
+          </n-icon>
+        </template>
+      </n-button>
+      <n-button circle size="large">
+        <template #icon>
+          <n-icon>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                 viewBox="0 0 28 28">
+              <g fill="none">
+                <path d="M24 13h-9V4a1 1 0 1 0-2 0v9H4a1 1 0 1 0 0 2h9v9a1 1 0 1 0 2 0v-9h9a1 1 0 1 0 0-2z"
+                      fill="currentColor"></path>
+              </g>
+            </svg>
+          </n-icon>
+        </template>
+      </n-button>
     </n-flex>
     <npc-viewer v-model:show="showNpcSelector" @select-familiar-level="(id)=>{router.push({path:`/dialog/${id}`})}" />
     <function-manager v-model:show="showConditionDrawer" function-type="condition" />

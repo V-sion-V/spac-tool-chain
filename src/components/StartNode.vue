@@ -22,7 +22,7 @@ onMounted(()=>{
 <template>
   <n-flex vertical align="center" style="gap: 7px">
     <n-button :tertiary="!isDirty" type="primary" style="width: 50px" size="tiny"
-              @click="emit('requirePush', data)">
+              @click="emit('requirePush', data, true)">
       <template #icon>
         <n-icon>
           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">

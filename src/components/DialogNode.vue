@@ -152,7 +152,7 @@ onMounted(()=>{
           {{ props.id }}
         </n-text>
         <n-button :tertiary="!isDirty" type="primary" style="position: absolute; right: 67px; top:2px; width: 50px" size="tiny"
-                  @click="emit('requirePush', data, props.position)">
+                  @click="emit('requirePush', props.id, data, props.position, true)">
           <template #icon>
             <n-icon>
               <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
@@ -292,7 +292,9 @@ onMounted(()=>{
           </n-flex>
         </n-flex>
       </n-card>
-      <n-button type="info" tertiary style="width: 400px; margin-top: 6px" @click="addSelection">
+      <n-button type="info" tertiary @click="addSelection"
+                style="width: 400px; margin-top: 6px;background-color: #282828;border-radius: 5px" 
+      >
         Add selection
       </n-button>
     </n-flex>
