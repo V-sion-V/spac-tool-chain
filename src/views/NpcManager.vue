@@ -25,16 +25,7 @@ function animate(duration, timing, update, complete) {
 const npcListContext = ref({
   loading: true,
   currentNpcIndex: -1,
-  npcList: [
-    { id: '00001', npcID: 'TestNPC_1', name: 'V_sion1' },
-    { id: '00002', npcID: 'TestNPC_2', name: 'V_sion2' },
-    { id: '00003', npcID: 'TestNPC_3', name: 'V_sion3' },
-    { id: '00004', npcID: 'TestNPC_4', name: 'V_sion4' },
-    { id: '00005', npcID: 'TestNPC_5', name: 'V_sion5' },
-    { id: '00006', npcID: 'TestNPC_6', name: 'V_sion6' },
-    { id: '00007', npcID: 'TestNPC_7', name: 'V_sion7' },
-    { id: '00008', npcID: 'TestNPC_8', name: 'V_sion8' }
-  ]
+  npcList: []
 })
 
 const npcInfoContext = ref({
@@ -43,6 +34,7 @@ const npcInfoContext = ref({
   currentFamiliarLevel: -1,
   leftPanelHidePercentage: 0,
   lastDraggedIndex: -1,
+  deleteConfirmInputText: '',
   savedCurrentNpcInfo: {
     id: '',
     npcID: '',
@@ -77,6 +69,7 @@ function changeCurrentNpc(index) {
   npcInfoContext.value.loading = true
   npcInfoContext.value.currentFamiliarLevel = -1
   npcInfoContext.value.isEditMode = false
+  npcInfoContext.value.deleteConfirmInputText = ''
   axios.post('/npc/getInfo', { id: npcListContext.value.npcList[index].id }).then((res) => {
     npcInfoContext.value.loading = false
     npcInfoContext.value.currentNpcInfo = res.data
@@ -307,13 +300,13 @@ function getDraggableCardClass(index) {
             </n-button>
             <n-popconfirm
               v-if="!npcInfoContext.isEditMode"
-              @positive-click="applyDeleteCurrentNpc()"
               placement="bottom"
-              :positive-button-props="{type:'error'}"
               :show-icon="false"
             >
               <template #trigger>
-                <n-button circle type="error" tertiary style="margin: auto 5px">
+                <n-button circle type="error" tertiary style="margin: auto 5px"
+                          @click="npcInfoContext.deleteConfirmInputText = ''"
+                >
                   <template #icon>
                     <n-icon>
                       <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -328,9 +321,15 @@ function getDraggableCardClass(index) {
                   </template>
                 </n-button>
               </template>
-              <n-text style="text-align: center;margin:auto">
-                Delete NPC {{npcInfoContext.currentNpcInfo.name}}
-              </n-text>
+              <template #action>
+                <n-button style="margin: auto" @click="applyDeleteCurrentNpc()" type="error"
+                          :disabled="npcInfoContext.deleteConfirmInputText !== npcInfoContext.currentNpcInfo.name"
+                >
+                  Input "{{npcInfoContext.currentNpcInfo.name}}" to delete.
+                </n-button>
+              </template>
+              <n-input v-model:value="npcInfoContext.deleteConfirmInputText">
+              </n-input>
             </n-popconfirm>
             <n-button v-if="npcInfoContext.isEditMode"
                       circle tertiary

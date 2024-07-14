@@ -6,8 +6,6 @@ const props = defineProps(['id','position'])
 const emit = defineEmits(['selectionMoveUp','selectionMoveDown','selectionRemoved','nodeRemoved', 'inputChange','positionChange','requirePush'])
 const data = defineModel('data')
 
-const selectionIdCount = ref(data.value.nodeInput.selections.length)
-
 const nextModes = [
   {
     value: 'condition',
@@ -77,14 +75,12 @@ function handleMoveDown(index) {
 function addSelection() {
   data.value.nodeInput.selections.push(
     {
-      id: selectionIdCount.value,
       text: '',
       condition: null,
       trigger: null,
       next: undefined
     }
   )
-  selectionIdCount.value++
 }
 
 const isDirty = computed(()=> {
@@ -285,10 +281,20 @@ onMounted(()=>{
             placeholder="Selection Text"
           />
           <n-flex align="center" style="flex-wrap: nowrap;gap:8px">
-            <n-select style="" size="small" v-model:value="selection.condition" :options="conditionOptions"
-                      placeholder="Condition" />
-            <n-select style="" size="small" v-model:value="selection.trigger" :options="triggerOptions"
-                      placeholder="Trigger" />
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <n-select size="small" v-model:value="selection.condition" :options="conditionOptions"
+                          style="max-width: calc(50% - 4px)" placeholder="Condition" />
+              </template>
+              Condition
+            </n-tooltip>
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <n-select style="max-width: calc(50% - 4px)" size="small" v-model:value="selection.trigger" :options="triggerOptions"
+                          placeholder="Trigger" />
+              </template>
+              Trigger
+            </n-tooltip>
           </n-flex>
         </n-flex>
       </n-card>

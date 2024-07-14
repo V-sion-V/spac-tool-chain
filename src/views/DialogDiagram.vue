@@ -26,28 +26,62 @@ function newStartNode() {
   }
 }
 
-function newDialogNode() {
-  return {
-    id: '0',
-    type: 'dialog',
-    position: { x: 50, y: 50 },
-    connectable: true,
-    draggable: true,
-    data: {
-      outConnections: {},
-      nodeInput: {
-        speakerName: '',
-        text: '',
-        nextMode: 'condition',
-        nextDefault: undefined,
-        selections: []
-      },
-      lastNodeInput: {
-        speakerName: '',
-        text: '',
-        nextMode: 'condition',
-        nextDefault: undefined,
-        selections: []
+function newDialogNode(nodeData = null) {
+  if (nodeData) {
+    return {
+      id: nodeData.dialogID,
+      type: 'dialog',
+      position: { x: nodeData.posX, y: nodeData.posY },
+      connectable: true,
+      draggable: true,
+      data: {
+        outConnections: {},
+        nodeInput: {
+          speakerName: nodeData.speaker,
+          text: nodeData.content,
+          nextMode: nodeData.nextMode === 'select' ? 'select' : 'condition',
+          nextDefault: nodeData.nextDefault,
+          selections: nodeData.selections.map((selection) => {
+            return {
+              text: selection.content,
+              next: selection.next,
+              trigger: selection.trigger,
+              condition: selection.condition
+            }
+          })
+        },
+        lastNodeInput: {
+          speakerName: '',
+          text: '',
+          nextMode: 'condition',
+          nextDefault: undefined,
+          selections: []
+        }
+      }
+    }
+  } else {
+    return {
+      id: '0',
+      type: 'dialog',
+      position: { x: 50, y: 50 },
+      connectable: true,
+      draggable: true,
+      data: {
+        outConnections: {},
+        nodeInput: {
+          speakerName: '',
+          text: '',
+          nextMode: 'condition',
+          nextDefault: undefined,
+          selections: []
+        },
+        lastNodeInput: {
+          speakerName: '',
+          text: '',
+          nextMode: 'condition',
+          nextDefault: undefined,
+          selections: []
+        }
       }
     }
   }
@@ -65,19 +99,34 @@ watch(() => route.params.id,
 const diagramLoadingContext = ref({
   currentIndex: 0,
   totalCount: 1,
-  loadNodeTimer: ref(),
-  isVueFlowReady: false
+  isVueFlowReady: false,
+  pendingDialogNodes: [],
+  pendingEdges: []
 })
 
 function loadDiagram(familiarID) {
-  let nodeCount = 100
   diagramLoadingContext.value.isVueFlowReady = false
   if (familiarID !== '0') {
     nodes.value = [newStartNode()]
     edges.value = []
-    //todo:load node list from backend
-    diagramLoadingContext.value.totalCount = nodeCount
-    diagramLoadingContext.value.loadNodeTimer = setTimeout(loadNode, 200, 0, nodeCount, 100)
+    diagramLoadingContext.value.pendingDialogNodes = []
+    diagramLoadingContext.value.pendingEdges = []
+    axios.post('/dialog/getList', { familiarID: familiarID }).then((res) => {
+      if (res.data.firstDialogID && res.data.firstDialogID !== '') {
+        diagramLoadingContext.value.pendingEdges.push({
+          source: 'start',
+          target: res.data.firstDialogID,
+          sourceHandle: 'nextDefault',
+          targetHandle: 'left'
+        })
+      } //add edge from start to first dialog
+      diagramLoadingContext.value.pendingDialogNodes = res.data.dialogIDList
+      diagramLoadingContext.value.totalCount = res.data.dialogIDList.length
+      diagramLoadingContext.value.currentIndex = 0
+      loadNodesFromBackend()
+    }).catch((e) => {
+      console.log(e) //todo:show error message
+    })
   } else {
     nodes.value = []
     edges.value = []
@@ -85,38 +134,61 @@ function loadDiagram(familiarID) {
   }
 }
 
-function loadNode(start, end, batch) {
-  //todo:load node from backend
-  diagramLoadingContext.value.currentIndex = start + batch
-  let i = start
-  while (i < start + batch && i < end) {
-    let node = newDialogNode()
-    node.id = '0' + i
-    node.position = { x: i / 10 * 550 + 850, y: i % 10 * 400 + i }
-    nodes.value.push(node)
-    if (i !== 0)
-      addEdge({ source: '0' + (i - 1), target: '0' + i, sourceHandle: 'nextDefault', targetHandle: 'left' })
-    else
-      addEdge({ source: 'start', target: '0' + i, sourceHandle: 'nextDefault', targetHandle: 'left' })
-    i++
+function loadNodesFromBackend(batchSize = 10) {
+  let queryData = []
+  let batchEnd = diagramLoadingContext.value.currentIndex + batchSize
+  for (;diagramLoadingContext.value.currentIndex < diagramLoadingContext.value.totalCount && 
+        diagramLoadingContext.value.currentIndex < batchEnd ; diagramLoadingContext.value.currentIndex++) {
+    queryData.push(diagramLoadingContext.value.pendingDialogNodes[diagramLoadingContext.value.currentIndex])
   }
-  if (i < end) {
-    diagramLoadingContext.value.loadNodeTimer = setTimeout(loadNode, 200, i, end, batch)
-  } else {
-    diagramLoadingContext.value.loadNodeTimer = setTimeout(postLoadDiagram, 200)
-  }
+  axios.post('/dialog/getInfoBatch', { dialogIDList: queryData }).then((res) => {
+    if (res.data.dialogList) {
+      res.data.dialogList.forEach((nodeData) => {
+        let node = newDialogNode(nodeData)
+        nodes.value.push(node)
+        if (nodeData.nextDefault && nodeData.nextDefault !== '') {
+          diagramLoadingContext.value.pendingEdges.push({
+            source: nodeData.dialogID,
+            target: nodeData.nextDefault,
+            sourceHandle: 'nextDefault',
+            targetHandle: 'left'
+          })
+        }
+        nodeData.selections.forEach((selection, index) => {
+          if (selection.next && selection.next !== '') {
+            diagramLoadingContext.value.pendingEdges.push({
+              source: nodeData.dialogID,
+              target: selection.next,
+              sourceHandle: 'next' + index,
+              targetHandle: 'left'
+            })
+          }
+        })
+      })
+    }
+    if (diagramLoadingContext.value.currentIndex >= diagramLoadingContext.value.totalCount) {
+      diagramLoadingContext.value.pendingEdges.forEach((edge) => {
+        addEdge(edge, true)
+      })
+      diagramLoadingContext.value.pendingEdges = []
+      diagramLoadingContext.value.pendingDialogNodes = []
+      nextTick(()=>{
+        postLoadDiagram()
+      })
+    } else {
+      loadNodesFromBackend(batchSize)
+    } 
+  }).catch((e) => {
+    console.log(e) //todo:show error message
+  })
 }
 
 function postLoadDiagram() {
   pushAllNodes(false)
-  diagramLoadingContext.value.loadNodeTimer = setTimeout(showDiagram, 200)
+  nextTick(()=>{
+    diagramLoadingContext.value.isVueFlowReady = true
+  })
 }
-
-function showDiagram() {
-  clearTimeout(diagramLoadingContext.value.loadNodeTimer)
-  diagramLoadingContext.value.isVueFlowReady = true
-}
-
 
 const isConnectedThisFrame = ref(false)
 const lastConnectStartInfo = ref({ source: '', sourceHandle: '' })
@@ -170,6 +242,26 @@ onEdgeDoubleClick((event) => {
   }
 })
 
+function addNodeAndSync() {
+  let pos = vueFlowInstance.value.project({ x: window.innerWidth / 2 - 200, y: window.innerHeight / 2 - 130 })
+  let node = newDialogNode()
+  node.position.x = pos.x
+  node.position.y = pos.y
+  pushToBackendCounter.value++
+  axios.post('/dialog/add', {
+    familiarID: route.params.id,
+    posX: pos.x,
+    posY: pos.y
+  }).then((res) => {
+    node.id = res.data.dialogID
+    nodes.value.push(node)
+    pushDialogNode(node.id, node.data, node.position, false)
+    pushToBackendCounter.value--
+  }).catch((e) => {
+    console.log(e) //todo:show error message
+  })
+}
+
 function canAddEdge(connection) {
   let canAdd = true
   edges.value.forEach((i) => {
@@ -181,7 +273,11 @@ function canAddEdge(connection) {
   return canAdd
 }
 
-function addEdge(connection) {
+function addEdge(connection, checkNodeExist = false) {
+  if (checkNodeExist) {
+    if (!nodes.value.find(n => n.id === connection.source)) return
+    if (!nodes.value.find(n => n.id === connection.target)) return
+  }
   let edge = {
     source: connection.source,
     target: connection.target,
@@ -375,7 +471,7 @@ const searchResult = computed(() => {
       if (index !== -1) {
         ret.push({
           value: node.id,
-          label: '[Speaker] ' + node.data.nodeInput.speakerName.slice(Math.max(0, index - 3), Math.min(index + 3, node.data.nodeInput.speakerName.length))
+          label: '[Speaker] ' + node.data.nodeInput.speakerName.slice(Math.max(0, index - 3), Math.min(index + searchInput.value.length + 5, node.data.nodeInput.speakerName.length))
         })
         return
       }
@@ -383,7 +479,7 @@ const searchResult = computed(() => {
       if (index !== -1) {
         ret.push({
           value: node.id,
-          label: '[Text] ' + node.data.nodeInput.text.slice(Math.max(0, index - 3), Math.min(index + 3, node.data.nodeInput.text.length))
+          label: '[Text] ' + node.data.nodeInput.text.slice(Math.max(0, index - 3), Math.min(index + searchInput.value.length + 5, node.data.nodeInput.text.length))
         })
         return
       }
@@ -393,7 +489,7 @@ const searchResult = computed(() => {
         if (index !== -1) {
           ret.push({
             value: node.id,
-            label: '[Selection ' + i + '] ' + selection.text.slice(Math.max(0, index - 3), Math.min(index + 3, selection.text.length))
+            label: '[Selection ' + (i+1) + '] ' + selection.text.slice(Math.max(0, index - 3), Math.min(index + searchInput.value.length + 5, selection.text.length))
           })
           return
         }
@@ -415,7 +511,8 @@ onMounted(() => {
 <template>
   <n-flex style="height: 100%; width: 100%; overflow: hidden">
     <n-empty v-if="route.params.id !== '0' && !diagramLoadingContext.isVueFlowReady"
-             style="width: 100%;height: 100%; display: flex; justify-content: center; align-items: center;"
+             style="width: 100%;height: 100%; display: flex; justify-content: center; align-items: center;
+             background-color:rgb(16, 16, 20);"
              size="huge" :show-icon="false"
     >
       <n-flex vertical align="center">
@@ -428,7 +525,8 @@ onMounted(() => {
       </n-flex>
     </n-empty>
     <n-empty v-if="route.params.id === '0'"
-             style="width: 100%;height: 100%; display: flex; justify-content: center; align-items: center;"
+             style="width: 100%;height: 100%; display: flex; justify-content: center; align-items: center;
+             background-color:rgb(16, 16, 20);"
              size="huge" :show-icon="false"
     >
       <n-flex vertical align="center">
@@ -461,51 +559,12 @@ onMounted(() => {
         </template>
       </VueFlow>
     </div>
-    <n-flex vertical v-if="diagramLoadingContext.isVueFlowReady">
-      <n-float-button :left="20" :bottom="120" shape="circle" @click="showNpcSelector= true">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 28 28">
-            <g fill="none">
-              <path
-                d="M4 16l11 .001a2 2 0 0 1 1.994 1.85l.006.15V20.5c-.001 4.2-4.287 5.5-7.5 5.5c-3.149 0-7.329-1.248-7.495-5.252L2 20.5V18c0-1.054.816-1.918 1.85-1.994L4 16zm20 0l.15.006a2.001 2.001 0 0 1 1.844 1.837L26 18v2c-.001 3.759-3.43 5-6 5c-1.058 0-2.259-.215-3.309-.725c.318-.378.587-.798.797-1.268c.958.42 1.991.485 2.428.492l.288-.003c1.036-.035 4.13-.384 4.29-3.263L24.5 20v-2a.501.501 0 0 0-.41-.492L24 17.5l-6.051.001a2.956 2.956 0 0 0-.595-1.34L17.22 16L24 16zM4 17.5l-.1.01a.51.51 0 0 0-.254.136a.506.506 0 0 0-.136.253L3.5 18v2.5c0 1.339.587 2.329 1.795 3.025c.996.576 2.39.923 3.864.97l.341.005l.435-.01c1.52-.068 5.379-.557 5.558-3.758l.007-.233v-2.498a.502.502 0 0 0-.41-.492l-.09-.008L4 17.5zM9.5 3a5.5 5.5 0 1 1 0 11a5.5 5.5 0 0 1 0-11zm11 2a4.5 4.5 0 1 1 0 9a4.5 4.5 0 0 1 0-9zm-11-.5c-2.206 0-4 1.794-4 4s1.794 4 4 4s4-1.794 4-4s-1.794-4-4-4zm11 2c-1.654 0-3 1.346-3 3s1.346 3 3 3s3-1.346 3-3s-1.346-3-3-3z"
-                fill="currentColor"></path>
-            </g>
-          </svg>
-        </n-icon>
-      </n-float-button>
-      <n-float-button :left="20" :bottom="70" shape="circle" @click="showConditionDrawer = true">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-            <path
-              d="M26 18a3.995 3.995 0 0 0-3.858 3H18a3.003 3.003 0 0 1-3-3v-4a4.951 4.951 0 0 0-1.026-3h8.168a4 4 0 1 0 0-2H9.858a4 4 0 1 0 0 2H10a3.003 3.003 0 0 1 3 3v4a5.006 5.006 0 0 0 5 5h4.142A3.994 3.994 0 1 0 26 18zm0-10a2 2 0 1 1-2 2a2.002 2.002 0 0 1 2-2zM6 12a2 2 0 1 1 2-2a2.002 2.002 0 0 1-2 2zm20 12a2 2 0 1 1 2-2a2.003 2.003 0 0 1-2 2z"
-              fill="currentColor"></path>
-          </svg>
-        </n-icon>
-      </n-float-button>
-      <n-float-button :left="20" :bottom="20" shape="circle" @click="showTriggerDrawer = true">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-            <path
-              d="M7 28a1 1 0 0 1-1-1V5a1 1 0 0 1 1.482-.876l20 11a1 1 0 0 1 0 1.752l-20 11A1 1 0 0 1 7 28zM8 6.69V25.31L24.925 16z"
-              fill="currentColor"></path>
-          </svg>
-        </n-icon>
-      </n-float-button>
-    </n-flex>
-    <n-flex id="top-bar" v-if="diagramLoadingContext.isVueFlowReady"
-            style="position: fixed; width: 100%; height: 70px;padding: 15px;
-            flex-wrap: nowrap;backdrop-filter: blur(15px);background-color: rgba(255, 255, 255, 0.1);"
+    <n-flex id="top-bar" v-if="route.params.id !== '0' && diagramLoadingContext.isVueFlowReady"
+            style="position: fixed; width: 100%; height: 70px;padding: 15px; 
+            border-bottom-color: #484848; border-bottom-width: 2px; border-bottom-style: solid;
+            flex-wrap: nowrap;backdrop-filter: blur(8px);background-color: rgba(255, 255, 255, 0.1);"
             justify="left" align="center" gap="20px"
     >
-      <n-button circle size="large" @click="router.push('/')">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-            <path
-              d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
-              fill="currentColor"></path>
-          </svg>
-        </n-icon>
-      </n-button>
       <n-auto-complete style="margin-left: 10px;margin-right:10px;height: 36px;width: 300px;"
                        v-model:value="searchInput" :options="searchResult"
                        blur-after-select clear-after-select
@@ -536,7 +595,7 @@ onMounted(() => {
           </n-icon>
         </template>
       </n-button>
-      <n-button circle size="large">
+      <n-button circle size="large" @click="addNodeAndSync">
         <template #icon>
           <n-icon>
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -550,6 +609,52 @@ onMounted(() => {
         </template>
       </n-button>
     </n-flex>
+    <n-flex vertical v-if="diagramLoadingContext.isVueFlowReady">
+      <n-float-button :left="20" :bottom="120" shape="circle" @click="showNpcSelector= true">
+        <n-icon>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 28 28">
+            <g fill="none">
+              <path
+                d="M4 16l11 .001a2 2 0 0 1 1.994 1.85l.006.15V20.5c-.001 4.2-4.287 5.5-7.5 5.5c-3.149 0-7.329-1.248-7.495-5.252L2 20.5V18c0-1.054.816-1.918 1.85-1.994L4 16zm20 0l.15.006a2.001 2.001 0 0 1 1.844 1.837L26 18v2c-.001 3.759-3.43 5-6 5c-1.058 0-2.259-.215-3.309-.725c.318-.378.587-.798.797-1.268c.958.42 1.991.485 2.428.492l.288-.003c1.036-.035 4.13-.384 4.29-3.263L24.5 20v-2a.501.501 0 0 0-.41-.492L24 17.5l-6.051.001a2.956 2.956 0 0 0-.595-1.34L17.22 16L24 16zM4 17.5l-.1.01a.51.51 0 0 0-.254.136a.506.506 0 0 0-.136.253L3.5 18v2.5c0 1.339.587 2.329 1.795 3.025c.996.576 2.39.923 3.864.97l.341.005l.435-.01c1.52-.068 5.379-.557 5.558-3.758l.007-.233v-2.498a.502.502 0 0 0-.41-.492l-.09-.008L4 17.5zM9.5 3a5.5 5.5 0 1 1 0 11a5.5 5.5 0 0 1 0-11zm11 2a4.5 4.5 0 1 1 0 9a4.5 4.5 0 0 1 0-9zm-11-.5c-2.206 0-4 1.794-4 4s1.794 4 4 4s4-1.794 4-4s-1.794-4-4-4zm11 2c-1.654 0-3 1.346-3 3s1.346 3 3 3s3-1.346 3-3s-1.346-3-3-3z"
+                fill="currentColor"></path>
+            </g>
+          </svg>
+        </n-icon>
+      </n-float-button>
+      <n-float-button :left="20" :bottom="70" shape="circle" @click="showConditionDrawer = true">
+        <n-icon>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+            <path
+              d="M26 18a3.995 3.995 0 0 0-3.858 3H18a3.003 3.003 0 0 1-3-3v-4a4.951 4.951 0 0 0-1.026-3h8.168a4 4 0 1 0 0-2H9.858a4 4 0 1 0 0 2H10a3.003 3.003 0 0 1 3 3v4a5.006 5.006 0 0 0 5 5h4.142A3.994 3.994 0 1 0 26 18zm0-10a2 2 0 1 1-2 2a2.002 2.002 0 0 1 2-2zM6 12a2 2 0 1 1 2-2a2.002 2.002 0 0 1-2 2zm20 12a2 2 0 1 1 2-2a2.003 2.003 0 0 1-2 2z"
+              fill="currentColor"></path>
+          </svg>
+        </n-icon>
+      </n-float-button>
+      <n-float-button :left="20" :bottom="20" shape="circle" @click="showTriggerDrawer = true">
+        <n-icon>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+            <path
+              d="M7 28a1 1 0 0 1-1-1V5a1 1 0 0 1 1.482-.876l20 11a1 1 0 0 1 0 1.752l-20 11A1 1 0 0 1 7 28zM8 6.69V25.31L24.925 16z"
+              fill="currentColor"></path>
+          </svg>
+        </n-icon>
+      </n-float-button>
+      <n-float-button :top="15" :right="20" shape="circle" @click="router.push('/')">
+        <n-icon>
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+            <path
+              d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
+              fill="currentColor"></path>
+          </svg>
+        </n-icon>
+      </n-float-button>
+    </n-flex>
+    <n-flex v-show="pushToBackendCounter > 0"
+            style="position: fixed;width: 100%;height: 100%;backdrop-filter: blur(10px)">
+      <n-spin style="margin: auto;" :size="100" :stroke-width="30">
+      </n-spin>
+    </n-flex>
+
     <npc-viewer v-model:show="showNpcSelector" @select-familiar-level="(id)=>{router.push({path:`/dialog/${id}`})}" />
     <function-manager v-model:show="showConditionDrawer" function-type="condition" />
     <function-manager v-model:show="showTriggerDrawer" function-type="trigger" />
