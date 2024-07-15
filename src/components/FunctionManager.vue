@@ -2,7 +2,9 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import router from '@/router/index.js'
 import axios from 'axios'
+import {useMessage} from 'naive-ui'
 
+const message = useMessage()
 const show = defineModel('show', { required: true })
 const props = defineProps(['functionType'])
 const functionDrawerContext = ref({
@@ -33,6 +35,7 @@ function loadDrawerContent() {
     functionDrawerContext.value.functionList = res.data.list
     functionDrawerContext.value.functionList.sort((a, b) => a.functionName.localeCompare(b.functionName))
   }).catch((e) => {
+    message.error('[Network Error] Can not load function list.', {closable:true, duration:0})
     console.log(e)
   })
 }
@@ -91,6 +94,9 @@ function applyDeleteFunction(index) {
     id: functionDrawerContext.value.functionList[index].id
   }).then((res)=>{
     loadDrawerContent()
+  }).catch((e)=>{
+    message.error('[Network Error] Can delete function.', {closable:true, duration:0})
+    console.log(e)
   })
 }
 
@@ -108,6 +114,8 @@ function applyEditFunction() {
       loadDrawerContent()
     }).catch((e)=>{
       editDrawerContext.value.confirmLoading = false
+      console.log(e)
+      message.error('[Network Error] Can not sync changes.', {closable:true, duration:0})
     })
   }
 }
@@ -125,6 +133,8 @@ function applyAddFunction() {
       loadDrawerContent()
     }).catch((e)=>{
       editDrawerContext.value.confirmLoading = false
+      console.log(e)
+      message.error('[Network Error] Can not add function.', {closable:true, duration:0})
     })
   }
 }

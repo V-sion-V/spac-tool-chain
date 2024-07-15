@@ -8,9 +8,11 @@ import FunctionManager from '@/components/FunctionManager.vue'
 import router from '@/router/index.js'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
+import {useMessage} from 'naive-ui'
 
 const { onConnect, onConnectEnd, onEdgeDoubleClick, onConnectStart } = useVueFlow()
 const route = useRoute()
+const message = useMessage()
 
 function newStartNode() {
   return {
@@ -125,7 +127,8 @@ function loadDiagram(familiarID) {
       diagramLoadingContext.value.currentIndex = 0
       loadNodesFromBackend()
     }).catch((e) => {
-      console.log(e) //todo:show error message
+      message.error('[Network Error] Can not load dialog list.', {closable:true, duration:0})
+      console.log(e)
     })
   } else {
     nodes.value = []
@@ -179,7 +182,8 @@ function loadNodesFromBackend(batchSize = 10) {
       loadNodesFromBackend(batchSize)
     } 
   }).catch((e) => {
-    console.log(e) //todo:show error message
+    message.error('[Network Error] Can not load dialog info batches.', {closable:true, duration:0})
+    console.log(e)
   })
 }
 
@@ -258,7 +262,8 @@ function addNodeAndSync() {
     pushDialogNode(node.id, node.data, node.position, false)
     pushToBackendCounter.value--
   }).catch((e) => {
-    console.log(e) //todo:show error message
+    message.error('[Network Error] Can not add dialog node.', {closable:true, duration:0})
+    console.log(e)
   })
 }
 
@@ -373,7 +378,8 @@ function removeNode(id) {
       pushToBackendCounter.value--
       pushAllNodes(false)
     }).catch((e) => {
-      console.log(e) //todo:show error message
+      message.error('[Network Error] Can not delete dialog node.', {closable:true, duration:0})
+      console.log(e)
     })
   }
 }
@@ -425,7 +431,8 @@ function pushDialogNode(id, data, position, toBackend = false) {
     }).then((res) => {
       pushToBackendCounter.value--
     }).catch((e) => {
-      console.log(e) //todo:show error message
+      message.error('[Network Error] Can not sync changes.', {closable:true, duration:0})
+      console.log(e)
     })
   }
 }
@@ -438,7 +445,8 @@ function pushStartNode(data, toBackend = false) {
     axios.post('/dialog/changeFirstDialog', { familiarID: familiarID, firstDialogID: data.lastNext }).then((res) => {
       pushToBackendCounter.value--
     }).catch((e) => {
-      console.log(e) //todo:show error message
+      message.error('[Network Error] Can not sync changes.', {closable:true, duration:0})
+      console.log(e)
     })
   }
 }
@@ -561,7 +569,7 @@ onMounted(() => {
     </div>
     <n-flex id="top-bar" v-if="route.params.id !== '0' && diagramLoadingContext.isVueFlowReady"
             style="position: fixed; width: 100%; height: 70px;padding: 15px; 
-            border-bottom-color: #484848; border-bottom-width: 2px; border-bottom-style: solid;
+            border-bottom-color: #383838; border-bottom-width: 1px; border-bottom-style: solid;
             flex-wrap: nowrap;backdrop-filter: blur(8px);background-color: rgba(255, 255, 255, 0.1);"
             justify="left" align="center" gap="20px"
     >
@@ -608,6 +616,19 @@ onMounted(() => {
           </n-icon>
         </template>
       </n-button>
+      <n-flex align="center" justify="right" gap="20px" style="flex: 1;padding-right: 5px">
+        <n-button circle size="large" @click="router.push('/')">
+          <template #icon>
+            <n-icon>
+              <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+                <path
+                  d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
+                  fill="currentColor"></path>
+              </svg>
+            </n-icon>
+          </template>
+        </n-button>
+      </n-flex>
     </n-flex>
     <n-flex vertical v-if="diagramLoadingContext.isVueFlowReady">
       <n-float-button :left="20" :bottom="120" shape="circle" @click="showNpcSelector= true">
@@ -635,15 +656,6 @@ onMounted(() => {
           <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
             <path
               d="M7 28a1 1 0 0 1-1-1V5a1 1 0 0 1 1.482-.876l20 11a1 1 0 0 1 0 1.752l-20 11A1 1 0 0 1 7 28zM8 6.69V25.31L24.925 16z"
-              fill="currentColor"></path>
-          </svg>
-        </n-icon>
-      </n-float-button>
-      <n-float-button :top="15" :right="20" shape="circle" @click="router.push('/')">
-        <n-icon>
-          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
-            <path
-              d="M16.612 2.214a1.01 1.01 0 0 0-1.242 0L1 13.419l1.243 1.572L4 13.621V26a2.004 2.004 0 0 0 2 2h20a2.004 2.004 0 0 0 2-2V13.63L29.757 15L31 13.428zM18 26h-4v-8h4zm2 0v-8a2.002 2.002 0 0 0-2-2h-4a2.002 2.002 0 0 0-2 2v8H6V12.062l10-7.79l10 7.8V26z"
               fill="currentColor"></path>
           </svg>
         </n-icon>

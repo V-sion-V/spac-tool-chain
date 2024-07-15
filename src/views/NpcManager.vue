@@ -5,6 +5,9 @@ import axios from 'axios'
 import router from '@/router/index.js'
 import { useThemeVars } from 'naive-ui'
 import draggable from 'vuedraggable'
+import { useMessage } from 'naive-ui'
+
+const message = useMessage()
 
 function animate(duration, timing, update, complete) {
   let start = performance.now()
@@ -60,7 +63,8 @@ function loadNpcList() {
     npcListContext.value.npcList = res.data.npcList
     npcListContext.value.npcList.sort((a, b) => a.npcID.localeCompare(b.npcID))
   }).catch((e) => {
-    console.log(e) //todo:show error message
+    message.error('[Network Error] Can not load NPC list.', {closable:true, duration:0})
+    console.log(e)
   })
 }
 
@@ -75,7 +79,8 @@ function changeCurrentNpc(index) {
     npcInfoContext.value.currentNpcInfo = res.data
     npcInfoContext.value.savedCurrentNpcInfo = JSON.parse(JSON.stringify(npcInfoContext.value.currentNpcInfo))
   }).catch((e) => {
-    console.log(e) //todo:show error message
+    message.error('[Network Error] Can not load NPC info.', {closable:true, duration:0})
+    console.log(e)
   })
 }
 
@@ -162,7 +167,8 @@ function applyCurrentChanges() {
     axios.post('/npc/add', data).then((res)=>{
       loadNpcList()
     }).catch((e)=>{
-      console.log(e)//todo:show error message
+      message.error('[Network Error] Can not add NPC.', {closable:true, duration:0})
+      console.log(e)
     })
   } else {
     let data = {id:current.id, npcID:current.npcID, name: current.name, familiarList: []}
@@ -170,7 +176,8 @@ function applyCurrentChanges() {
     axios.post('/npc/update', data).then((res)=>{
       loadNpcList()
     }).catch((e)=>{
-      console.log(e)//todo:show error message
+      message.error('[Network Error] Can not sync changes.', {closable:true, duration:0})
+      console.log(e)
     })
   }
 }
@@ -180,7 +187,8 @@ function applyDeleteCurrentNpc() {
   axios.post('/npc/delete', { id: currentID }).then((res) => {
     loadNpcList()
   }).catch((e) => {
-    console.log(e)//todo:show error message
+    message.error('[Network Error] Can not delete NPC.', {closable:true, duration:0})
+    console.log(e)
   })
 }
 

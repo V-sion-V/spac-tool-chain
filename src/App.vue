@@ -4,9 +4,11 @@ import { RouterLink, RouterView } from 'vue-router'
 
 <template>
   <n-config-provider :theme="darkTheme" style="padding:0; width: 100%;height: 100%">
-    <div style="padding:0; width: 100%;height: 100%">
-      <RouterView style="padding: 0"/>
-    </div>
+    <n-message-provider style="padding:0; width: 100%;height: 100%">
+      <div style="padding:0; width: 100%;height: 100%">
+        <RouterView style="padding: 0"/>
+      </div>
+    </n-message-provider>
   </n-config-provider>
 </template>
 

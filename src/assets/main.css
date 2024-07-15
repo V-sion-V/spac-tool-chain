@@ -41,5 +41,5 @@ a,
 
 .vue-flow__edges path {
   stroke-width:16;
-  stroke: lightgrey;
+  stroke: rgba(255, 255, 255, 0.5);
 }

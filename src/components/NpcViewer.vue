@@ -2,9 +2,11 @@
 import { ref, watch } from 'vue'
 import router from '@/router/index.js'
 import axios from 'axios'
+import {useMessage} from 'naive-ui'
 
 const show = defineModel('show', { required: true })
 const emit = defineEmits(['selectFamiliarLevel'])
+const message = useMessage()
 
 const npcDrawerContext = ref({
   loading: true,
@@ -68,6 +70,7 @@ function loadNpcDrawerContent() {
     npcDrawerContext.value.npcList = res.data.npcList
     npcDrawerContext.value.npcList.sort((a,b) => a.npcID.localeCompare(b.npcID))
   }).catch((e)=>{
+    message.error('[Network Error] Can not load NPC list.', {closable:true, duration:0})
     console.log(e)
   })
 }
@@ -82,6 +85,7 @@ function changeCurrentNpc(index) {
       npcDrawerContext.value.currentNpcInfoValue.familiarList[i].familiarLevel = i
     }
   }).catch((e)=>{
+    message.error('[Network Error] Can not load NPC info.', {closable:true, duration:0})
     console.log(e)
   })
 }
