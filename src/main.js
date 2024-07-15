@@ -16,7 +16,8 @@ import "@vue-flow/core/dist/style.css"
 import "@vue-flow/core/dist/theme-default.css"
 
 import axios from 'axios'
-axios.defaults.baseURL = 'http://127.0.0.1:4523/m1/4704421-4356475-default';
+axios.defaults.baseURL = 'http://172.16.3.72:5000/';
+axios.defaults.withCredentials = true;
 
 app.mount('#app')
 
