@@ -46,7 +46,7 @@ const showNpcViewer = ref(false)
                 @click=""
         >
           <n-h1 prefix="bar" type="success">
-            Relic
+            Relic & Mission
           </n-h1>
           <n-text depth="3">
             Coming soon.
@@ -56,7 +56,7 @@ const showNpcViewer = ref(false)
                 @click=""
         >
           <n-h1 prefix="bar" type="success">
-            Mission
+            Config Table
           </n-h1>
           <n-text depth="3">
             Coming soon.
